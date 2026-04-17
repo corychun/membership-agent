@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Membership Agent Demo</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121936;
+      --panel-2: #182247;
+      --text: #e8ecff;
+      --muted: #aab4df;
+      --primary: #6ea8fe;
+      --ok: #39d98a;
+      --warn: #ffcc66;
+      --danger: #ff7b7b;
+      --border: #2a376e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #0f1630 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 32px auto 64px;
+    }
+
+    .hero {
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+
+    .sub {
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: rgba(18, 25, 54, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button {
+      border: 0;
+      background: var(--primary);
+      color: #08101f;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s ease, opacity 0.2s ease;
+    }
+
+    button:hover { opacity: 0.95; }
+    button:active { transform: translateY(1px); }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+    }
+
+    .dot.ok { background: var(--ok); }
+    .dot.err { background: var(--danger); }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #d7ddff;
+      background: #0b1020;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 120px;
+    }
+
+    .full { grid-column: 1 / -1; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .step {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .step.active {
+      border-color: var(--primary);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(110,168,254,.2);
+    }
+
+    .tip {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+      line-height: 1.6;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .kv-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .kv-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      word-break: break-all;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0b1020;
+    }
+
+    table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(42, 55, 110, 0.9);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .empty-row td {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 12px;
+    }
+
+    code {
+      color: #d7ddff;
+    }
+
+    a {
+      color: var(--primary);
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .kv-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Membership Agent Demo</h1>
+      <div class="sub">
+        这是一个最小内测页面，用来串联报价、下单、USDT(TRC20) 收款、后台确认到账、交付完成、聊天问答和后台订单列表。<br />
+        默认连接 <code>http://127.0.0.1:8010</code>。
+      </div>
+    </div>
+
+    <div class="card full" style="margin-bottom: 16px;">
+      <div class="row">
+        <div class="field">
+          <label for="apiBase">后端地址</label>
+          <input id="apiBase" value="http://127.0.0.1:8010" />
+        </div>
+        <div class="field">
+          <label>快捷入口</label>
+          <div class="actions">
+            <button class="secondary" onclick="openDocs()">打开 Swagger</button>
+            <button class="secondary" onclick="checkHealth()">检查 /health</button>
+          </div>
+        </div>
+      </div>
+      <div class="status" id="healthStatus"><span class="dot"></span><span>等待检测后端状态</span></div>
+    </div>
+
+    <div class="steps">
+      <div class="step active">1. 获取报价</div>
+      <div class="step" id="step2">2. 创建订单</div>
+      <div class="step" id="step3">3. 创建 USDT 支付</div>
+      <div class="step" id="step4">4. 后台确认到账</div>
+      <div class="step" id="step5">5. 完成交付</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>业务信息</h2>
+        <div class="row">
+          <div class="field">
+            <label for="email">客户邮箱</label>
+            <input id="email" value="user@example.com" />
+          </div>
+          <div class="field">
+            <label for="targetEmail">开通邮箱</label>
+            <input id="targetEmail" value="user@example.com" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="userType">客户类型</label>
+            <select id="userType">
+              <option value="individual">individual</option>
+              <option value="team" selected>team</option>
+              <option value="enterprise">enterprise</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="productCode">产品</label>
+            <select id="productCode">
+              <option value="chatgpt-business-monthly" selected>chatgpt-business-monthly</option>
+              <option value="ai-tools-procurement-service">ai-tools-procurement-service</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="seats">人数 / 席位</label>
+          <input id="seats" type="number" min="1" value="3" />
+        </div>
+        <div class="actions">
+          <button onclick="getQuote()">获取报价</button>
+          <button class="secondary" onclick="createOrder()">直接创建订单</button>
+        </div>
+        <div class="tip">建议先获取报价，确认金额正常后再创建订单。</div>
+      </div>
+
+      <div class="card">
+        <h2>订单操作</h2>
+        <div class="field">
+          <label for="orderId">当前订单 ID</label>
+          <input id="orderId" placeholder="创建订单后自动写入，也可以手动粘贴" />
+        </div>
+        <div class="actions">
+          <button onclick="createUsdtPayment()">创建 USDT 支付</button>
+          <button class="secondary" onclick="refreshUsdtStatus()">刷新支付状态</button>
+          <button class="secondary" onclick="completeDelivery()">标记交付完成</button>
+        </div>
+        <div class="tip">创建 USDT 支付后，页面会展示固定收款地址、网络和金额。</div>
+      </div>
+
+      <div class="card full">
+        <h2>USDT 收款信息</h2>
+        <div class="kv-grid">
+          <div class="kv-item">
+            <strong>收款地址</strong>
+            <div class="mono" id="walletAddress">暂未生成</div>
+          </div>
+          <div class="kv-item">
+            <strong>网络</strong>
+            <div id="networkText">TRC20</div>
+          </div>
+          <div class="kv-item">
+            <strong>应付金额</strong>
+            <div id="amountUsdt">0</div>
+          </div>
+          <div class="kv-item">
+            <strong>支付状态</strong>
+            <div id="usdtStatus">未创建</div>
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 12px;">
+          <button class="secondary" onclick="copyWalletAddress()">复制地址</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>后台确认到账</h2>
+        <div class="field">
+          <label for="adminPassword">管理员密码</label>
+          <input id="adminPassword" type="password" placeholder="请输入 ADMIN_PASSWORD" value="123456" />
+        </div>
+        <div class="field">
+          <label for="txHash">交易哈希 tx_hash</label>
+          <input id="txHash" placeholder="请输入链上交易哈希" />
+        </div>
+        <div class="actions">
+          <button onclick="confirmUsdtPayment()">确认到账</button>
+        </div>
+        <div class="status" id="confirmStatus"><span class="dot"></span><span>等待后台确认到账</span></div>
+      </div>
+
+      <div class="card">
+        <h2>AI 聊天</h2>
+        <div class="field">
+          <label for="chatMessage">问题</label>
+          <textarea id="chatMessage">我有 5 个人，需要团队方案，帮我报价。</textarea>
+        </div>
+        <div class="actions">
+          <button onclick="sendChat()">发送聊天</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>当前状态</h2>
+        <div class="field">
+          <label>订单流程状态</label>
+          <pre id="stateBox">还没有订单。先获取报价或创建订单。</pre>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>后台订单</h2>
+        <div class="actions" style="margin-bottom: 12px;">
+          <button onclick="loadAdminOrders()">加载订单</button>
+        </div>
+        <div class="status" id="adminStatus"><span class="dot"></span><span>等待加载后台订单</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>order_id</th>
+                <th>email</th>
+                <th>product_code</th>
+                <th>amount</th>
+                <th>status</th>
+                <th>payment_status</th>
+                <th>delivery_status</th>
+                <th>created_at</th>
+              </tr>
+            </thead>
+            <tbody id="adminOrdersBody">
+              <tr class="empty-row">
+                <td colspan="8">还没有加载订单。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>库存后台</h2>
+        <div class="row">
+          <div class="field">
+            <label for="inventoryAdminPassword">管理员密码</label>
+            <input id="inventoryAdminPassword" type="password" placeholder="输入管理员密码" />
+          </div>
+          <div class="field">
+            <label for="inventoryProductCode">product_code</label>
+            <input id="inventoryProductCode" value="chatgpt-business-monthly" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="inventoryItemType">item_type</label>
+            <input id="inventoryItemType" value="redeem_code" />
+          </div>
+          <div class="field">
+            <label for="inventoryItemValue">item_value</label>
+            <input id="inventoryItemValue" placeholder="例如 VIP-TEST-001" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="inventoryItemSecret">item_secret（可选）</label>
+          <input id="inventoryItemSecret" placeholder="可留空" />
+        </div>
+
+        <div class="actions">
+          <button onclick="addInventory()">添加库存</button>
+          <button class="secondary" onclick="loadInventory()">查看库存</button>
+        </div>
+
+        <div class="tip">先添加一条库存，再对已支付订单执行自动发货。</div>
+      </div>
+
+      <div class="card full">
+        <h2>自动发货</h2>
+        <div class="row">
+          <div class="field">
+            <label for="fulfillOrderId">订单 ID</label>
+            <input id="fulfillOrderId" placeholder="输入已支付订单的 order_id" />
+          </div>
+          <div class="field">
+            <label for="fulfillAdminPassword">管理员密码</label>
+            <input id="fulfillAdminPassword" type="password" placeholder="输入管理员密码" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button onclick="runFulfillment()">执行自动发货</button>
+        </div>
+
+        <div class="tip">订单必须已经 paid，否则不会发货。</div>
+      </div>
+
+      <div class="card full">
+        <h2>库存列表</h2>
+        <pre id="inventoryBox">还没有加载库存。</pre>
+      </div>
+
+      <div class="card full">
+        <h2>接口返回结果</h2>
+        <pre id="resultBox">等待调用接口...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      quote: null,
+      order: null,
+      usdtPayment: null,
+      delivery: null,
+      chat: null,
+      adminOrders: [],
+      usdtConfirm: null,
+    };
+
+    function apiBase() {
+      return document.getElementById('apiBase').value.trim().replace(/\/$/, '');
+    }
+
+    function jsonHeaders() {
+      return { 'Content-Type': 'application/json' };
+    }
+
+    function adminHeaders() {
+      const password = document.getElementById('adminPassword').value.trim();
+      return password ? { 'X-Admin-Password': password } : {};
+    }
+
+    function getFormData() {
+      return {
+        email: document.getElementById('email').value.trim(),
+        target_email: document.getElementById('targetEmail').value.trim(),
+        user_type: document.getElementById('userType').value,
+        product_code: document.getElementById('productCode').value,
+        seats: Number(document.getElementById('seats').value || 1),
+      };
+    }
+
+    function setResult(title, data) {
+      document.getElementById('resultBox').textContent = `${title}\n\n${JSON.stringify(data, null, 2)}`;
+    }
+
+    function setState() {
+      document.getElementById('stateBox').textContent = JSON.stringify(state, null, 2);
+    }
+
+    function markStep(step) {
+      for (let i = 2; i <= 5; i++) {
+        const el = document.getElementById(`step${i}`);
+        if (el) el.classList.remove('active');
+      }
+      if (step >= 2) document.getElementById('step2').classList.add('active');
+      if (step >= 3) document.getElementById('step3').classList.add('active');
+      if (step >= 4) document.getElementById('step4').classList.add('active');
+      if (step >= 5) document.getElementById('step5').classList.add('active');
+    }
+
+    function setStatus(id, ok, text) {
+      const box = document.getElementById(id);
+      const dot = box.querySelector('.dot');
+      const span = box.querySelector('span:last-child');
+      dot.className = `dot ${ok ? 'ok' : 'err'}`;
+      span.textContent = text;
+    }
+
+    function updateUsdtCard(payment) {
+      document.getElementById('walletAddress').textContent = payment?.wallet_address || '暂未生成';
+      document.getElementById('networkText').textContent = payment?.network || 'TRC20';
+      document.getElementById('amountUsdt').textContent = payment?.amount_usdt ?? 0;
+      document.getElementById('usdtStatus').textContent = payment?.status || '未创建';
+    }
+
+    function renderAdminOrders(items) {
+      const tbody = document.getElementById('adminOrdersBody');
+      if (!items.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">当前数据库里还没有订单。</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map((item) => `
+        <tr>
+          <td class="mono">${escapeHtml(item.order_id)}</td>
+          <td>${escapeHtml(item.email)}</td>
+          <td>${escapeHtml(item.product_code)}</td>
+          <td>${escapeHtml(String(item.amount))}</td>
+          <td>${escapeHtml(item.status)}</td>
+          <td>${escapeHtml(item.payment_status)}</td>
+          <td>${escapeHtml(item.delivery_status)}</td>
+          <td>${escapeHtml(item.created_at)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function addInventory() {
+      const admin_password = document.getElementById('inventoryAdminPassword').value.trim();
+      const product_code = document.getElementById('inventoryProductCode').value.trim();
+      const item_type = document.getElementById('inventoryItemType').value.trim();
+      const item_value = document.getElementById('inventoryItemValue').value.trim();
+      const item_secret = document.getElementById('inventoryItemSecret').value.trim();
+
+      if (!admin_password || !product_code || !item_type || !item_value) {
+        setResult('POST /admin/inventory error', {
+          error: '请把管理员密码、product_code、item_type、item_value 填完整',
+        });
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${apiBase()}/admin/inventory`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            admin_password,
+            product_code,
+            item_type,
+            item_value,
+            item_secret: item_secret || null,
+          }),
+        });
+        const data = await handleResponse(resp);
+        setResult('POST /admin/inventory', data);
+        await loadInventory();
+      } catch (err) {
+        setResult('POST /admin/inventory error', { error: err.message });
+      }
+    }
+
+    async function loadInventory() {
+      const admin_password =
+        document.getElementById('inventoryAdminPassword').value.trim() ||
+        document.getElementById('fulfillAdminPassword').value.trim();
+
+      if (!admin_password) {
+        setResult('GET /admin/inventory error', { error: '请先输入管理员密码' });
+        return;
+      }
+
+      try {
+        const resp = await fetch(
+          `${apiBase()}/admin/inventory?admin_password=${encodeURIComponent(admin_password)}`
+        );
+        const data = await handleResponse(resp);
+        document.getElementById('inventoryBox').textContent = JSON.stringify(data, null, 2);
+        setResult('GET /admin/inventory', data);
+      } catch (err) {
+        setResult('GET /admin/inventory error', { error: err.message });
+      }
+    }
+
+    async function runFulfillment() {
+      const order_id = document.getElementById('fulfillOrderId').value.trim();
+      const admin_password = document.getElementById('fulfillAdminPassword').value.trim();
+
+      if (!order_id || !admin_password) {
+        setResult('POST /admin/fulfillment/run error', {
+          error: '请先输入 order_id 和管理员密码',
+        });
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${apiBase()}/admin/fulfillment/run`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            admin_password,
+            order_id,
+          }),
+        });
+        const data = await handleResponse(resp);
+        setResult('POST /admin/fulfillment/run', data);
+        state.delivery = data;
+        setState();
+      } catch (err) {
+        setResult('POST /admin/fulfillment/run error', { error: err.message });
+      }
+    }
+
+    async function handleResponse(resp) {
+      const text = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+      if (!resp.ok) {
+        throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
+      }
+      return data;
+    }
+
+    async function checkHealth() {
+      try {
+        const resp = await fetch(`${apiBase()}/health`);
+        const data = await handleResponse(resp);
+        setStatus('healthStatus', true, `后端正常：${JSON.stringify(data)}`);
+        setResult('GET /health', data);
+      } catch (err) {
+        setStatus('healthStatus', false, `后端异常：${err.message}`);
+        setResult('GET /health error', { error: err.message });
+      }
+    }
+
+    function openDocs() {
+      window.open(`${apiBase()}/docs`, '_blank');
+    }
+
+    async function getQuote() {
+      const payload = getFormData();
+      try {
+        const resp = await fetch(`${apiBase()}/quote`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            email: payload.email,
+            user_type: payload.user_type,
+            product_code: payload.product_code,
+            seats: payload.seats,
+          }),
+        });
+        const data = await handleResponse(resp);
+        state.quote = data;
+        setResult('POST /quote', data);
+        setState();
+      } catch (err) {
+        setResult('POST /quote error', { error: err.message });
+      }
+    }
+
+    async function createOrder() {
+      const payload = getFormData();
+      try {
+        const resp = await fetch(`${apiBase()}/orders`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const data = await handleResponse(resp);
+        state.order = data;
+        document.getElementById('orderId').value = data.order_id || '';
+        document.getElementById('fulfillOrderId').value = data.order_id || '';
+        setResult('POST /orders', data);
+        setState();
+        markStep(2);
+      } catch (err) {
+        setResult('POST /orders error', { error: err.message });
+      }
+    }
+
+    async function createUsdtPayment() {
+      const orderId = document.getElementById('orderId').value.trim();
+      if (!orderId) {
+        setResult('POST /payments/usdt/create error', { error: '请先创建订单或填写 order_id。' });
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBase()}/payments/usdt/create`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ order_id: orderId }),
+        });
+        const data = await handleResponse(resp);
+        state.usdtPayment = data;
+        updateUsdtCard(data);
+        setResult('POST /payments/usdt/create', data);
+        setState();
+        markStep(3);
+      } catch (err) {
+        setResult('POST /payments/usdt/create error', { error: err.message });
+      }
+    }
+
+    async function refreshUsdtStatus() {
+      const orderId = document.getElementById('orderId').value.trim();
+      if (!orderId) {
+        setResult('GET /payments/usdt/{order_id} error', { error: '请先创建订单或填写 order_id。' });
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBase()}/payments/usdt/${encodeURIComponent(orderId)}`);
+        const data = await handleResponse(resp);
+        state.usdtPayment = data;
+        updateUsdtCard(data);
+        setResult('GET /payments/usdt/{order_id}', data);
+        setState();
+      } catch (err) {
+        setResult('GET /payments/usdt/{order_id} error', { error: err.message });
+      }
+    }
+
+    async function confirmUsdtPayment() {
+      const orderId = document.getElementById('orderId').value.trim();
+      const adminPassword = document.getElementById('adminPassword').value.trim();
+      const txHash = document.getElementById('txHash').value.trim();
+      if (!orderId || !adminPassword || !txHash) {
+        setResult('POST /admin/payments/usdt/confirm error', { error: '请填写管理员密码、order_id 和 tx_hash。' });
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBase()}/admin/payments/usdt/confirm`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            admin_password: adminPassword,
+            order_id: orderId,
+            tx_hash: txHash,
+          }),
+        });
+        const data = await handleResponse(resp);
+        state.usdtConfirm = data;
+        state.usdtPayment = data;
+        updateUsdtCard(data);
+        setStatus('confirmStatus', true, '后台已确认到账');
+        setResult('POST /admin/payments/usdt/confirm', data);
+        setState();
+        markStep(4);
+      } catch (err) {
+        setStatus('confirmStatus', false, `确认失败：${err.message}`);
+        setResult('POST /admin/payments/usdt/confirm error', { error: err.message });
+      }
+    }
+
+    async function completeDelivery() {
+      const orderId = document.getElementById('orderId').value.trim();
+      if (!orderId) {
+        setResult('POST /deliveries/{order_id}/complete error', { error: '请先创建订单或填写 order_id。' });
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBase()}/deliveries/${encodeURIComponent(orderId)}/complete?note=${encodeURIComponent('manual delivery completed')}`, {
+          method: 'POST',
+        });
+        const data = await handleResponse(resp);
+        state.delivery = data;
+        setResult('POST /deliveries/{order_id}/complete', data);
+        setState();
+        markStep(5);
+      } catch (err) {
+        setResult('POST /deliveries/{order_id}/complete error', { error: err.message });
+      }
+    }
+
+    async function sendChat() {
+      const message = document.getElementById('chatMessage').value.trim();
+      if (!message) {
+        setResult('POST /chat error', { error: '请输入聊天内容。' });
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBase()}/chat`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ message }),
+        });
+        const data = await handleResponse(resp);
+        state.chat = data;
+        setResult('POST /chat', data);
+        setState();
+      } catch (err) {
+        setResult('POST /chat error', { error: err.message });
+      }
+    }
+
+    async function loadAdminOrders() {
+      try {
+        const resp = await fetch(`${apiBase()}/admin/orders`, {
+          headers: adminHeaders(),
+        });
+        const data = await handleResponse(resp);
+        state.adminOrders = data.items || [];
+        renderAdminOrders(state.adminOrders);
+        setStatus('adminStatus', true, `已加载 ${data.count ?? state.adminOrders.length} 条订单`);
+        setResult('GET /admin/orders', data);
+        setState();
+      } catch (err) {
+        renderAdminOrders([]);
+        setStatus('adminStatus', false, `加载失败：${err.message}`);
+        setResult('GET /admin/orders error', { error: err.message });
+      }
+    }
+
+    async function copyWalletAddress() {
+      const walletAddress = document.getElementById('walletAddress').textContent.trim();
+      if (!walletAddress || walletAddress === '暂未生成') {
+        setResult('复制地址', { error: '请先创建 USDT 支付。' });
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(walletAddress);
+        setResult('复制地址', { copied: walletAddress });
+      } catch (err) {
+        setResult('复制地址 error', { error: err.message });
+      }
+    }
+
+    checkHealth();
+  </script>
+</body>
+</html>
