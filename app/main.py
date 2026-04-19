@@ -5,11 +5,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import admin, quote, orders, payments, webhooks, deliveries, chat
-from app.core.config import settings
 import app.models.entities  # noqa: F401
 
 
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title="membership-agent")
 
 app.include_router(quote.router)
 app.include_router(orders.router)
