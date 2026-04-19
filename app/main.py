@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,7 +10,13 @@ import app.models.entities  # noqa: F401
 
 
 app = FastAPI(title="membership-agent")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(quote.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
