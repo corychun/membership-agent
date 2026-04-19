@@ -288,7 +288,7 @@
       <div class="row">
         <div class="field">
           <label for="apiBase">后端地址</label>
-          <input id="apiBase" value="http://127.0.0.1:8010" />
+          <input id="apiBase" value="https://aimembership.app" />
         </div>
         <div class="field">
           <label>快捷入口</label>
@@ -522,408 +522,67 @@
     </div>
   </div>
 
-  <script>
-    const state = {
-      quote: null,
-      order: null,
-      usdtPayment: null,
-      delivery: null,
-      chat: null,
-      adminOrders: [],
-      usdtConfirm: null,
-    };
+<script>
+  // 获取后端地址（优先输入框，否则用当前域名）
+  function getBackendBase() {
+    const input = document.querySelector('input');
+    const value = input ? input.value.trim() : "";
 
-    function apiBase() {
-      return document.getElementById('apiBase').value.trim().replace(/\/$/, '');
-    }
+    // 如果没填，就用当前域名（关键！）
+    return value || window.location.origin;
+  }
 
-    function jsonHeaders() {
-      return { 'Content-Type': 'application/json' };
-    }
+  // 统一请求函数（自动拼接 /api）
+  async function request(path, options = {}) {
+    const base = getBackendBase().replace(/\/+$/, "");
+    const url = `${base}${path}`;
 
-    function adminHeaders() {
-      const password = document.getElementById('adminPassword').value.trim();
-      return password ? { 'X-Admin-Password': password } : {};
-    }
+    try {
+      const res = await fetch(url, {
+        method: options.method || "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
 
-    function getFormData() {
-      return {
-        email: document.getElementById('email').value.trim(),
-        target_email: document.getElementById('targetEmail').value.trim(),
-        user_type: document.getElementById('userType').value,
-        product_code: document.getElementById('productCode').value,
-        seats: Number(document.getElementById('seats').value || 1),
-      };
-    }
-
-    function setResult(title, data) {
-      document.getElementById('resultBox').textContent = `${title}\n\n${JSON.stringify(data, null, 2)}`;
-    }
-
-    function setState() {
-      document.getElementById('stateBox').textContent = JSON.stringify(state, null, 2);
-    }
-
-    function markStep(step) {
-      for (let i = 2; i <= 5; i++) {
-        const el = document.getElementById(`step${i}`);
-        if (el) el.classList.remove('active');
-      }
-      if (step >= 2) document.getElementById('step2').classList.add('active');
-      if (step >= 3) document.getElementById('step3').classList.add('active');
-      if (step >= 4) document.getElementById('step4').classList.add('active');
-      if (step >= 5) document.getElementById('step5').classList.add('active');
-    }
-
-    function setStatus(id, ok, text) {
-      const box = document.getElementById(id);
-      const dot = box.querySelector('.dot');
-      const span = box.querySelector('span:last-child');
-      dot.className = `dot ${ok ? 'ok' : 'err'}`;
-      span.textContent = text;
-    }
-
-    function updateUsdtCard(payment) {
-      document.getElementById('walletAddress').textContent = payment?.wallet_address || '暂未生成';
-      document.getElementById('networkText').textContent = payment?.network || 'TRC20';
-      document.getElementById('amountUsdt').textContent = payment?.amount_usdt ?? 0;
-      document.getElementById('usdtStatus').textContent = payment?.status || '未创建';
-    }
-
-    function renderAdminOrders(items) {
-      const tbody = document.getElementById('adminOrdersBody');
-      if (!items.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">当前数据库里还没有订单。</td></tr>';
-        return;
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      tbody.innerHTML = items.map((item) => `
-        <tr>
-          <td class="mono">${escapeHtml(item.order_id)}</td>
-          <td>${escapeHtml(item.email)}</td>
-          <td>${escapeHtml(item.product_code)}</td>
-          <td>${escapeHtml(String(item.amount))}</td>
-          <td>${escapeHtml(item.status)}</td>
-          <td>${escapeHtml(item.payment_status)}</td>
-          <td>${escapeHtml(item.delivery_status)}</td>
-          <td>${escapeHtml(item.created_at)}</td>
-        </tr>
-      `).join('');
+      return await res.json();
+    } catch (err) {
+      console.error("请求失败:", url, err);
+      alert(`请求失败: ${err.message}`);
+      throw err;
     }
+  }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+  // 检查健康
+  async function checkHealth() {
+    try {
+      const data = await request("/health");
+      alert("后端正常: " + JSON.stringify(data));
+    } catch (e) {}
+  }
 
-    async function addInventory() {
-      const admin_password = document.getElementById('inventoryAdminPassword').value.trim();
-      const product_code = document.getElementById('inventoryProductCode').value.trim();
-      const item_type = document.getElementById('inventoryItemType').value.trim();
-      const item_value = document.getElementById('inventoryItemValue').value.trim();
-      const item_secret = document.getElementById('inventoryItemSecret').value.trim();
+  // 获取报价
+  async function getQuote() {
+    try {
+      const data = await request("/quote", {
+        method: "POST",
+        body: {
+          email: document.querySelectorAll('input')[0].value,
+          plan: "chatgpt-business-monthly",
+          seats: 3
+        }
+      });
+      console.log(data);
+      alert("报价成功");
+    } catch (e) {}
+  }
+ </script>
 
-      if (!admin_password || !product_code || !item_type || !item_value) {
-        setResult('POST /admin/inventory error', {
-          error: '请把管理员密码、product_code、item_type、item_value 填完整',
-        });
-        return;
-      }
-
-      try {
-        const resp = await fetch(`${apiBase()}/admin/inventory`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({
-            admin_password,
-            product_code,
-            item_type,
-            item_value,
-            item_secret: item_secret || null,
-          }),
-        });
-        const data = await handleResponse(resp);
-        setResult('POST /admin/inventory', data);
-        await loadInventory();
-      } catch (err) {
-        setResult('POST /admin/inventory error', { error: err.message });
-      }
-    }
-
-    async function loadInventory() {
-      const admin_password =
-        document.getElementById('inventoryAdminPassword').value.trim() ||
-        document.getElementById('fulfillAdminPassword').value.trim();
-
-      if (!admin_password) {
-        setResult('GET /admin/inventory error', { error: '请先输入管理员密码' });
-        return;
-      }
-
-      try {
-        const resp = await fetch(
-          `${apiBase()}/admin/inventory?admin_password=${encodeURIComponent(admin_password)}`
-        );
-        const data = await handleResponse(resp);
-        document.getElementById('inventoryBox').textContent = JSON.stringify(data, null, 2);
-        setResult('GET /admin/inventory', data);
-      } catch (err) {
-        setResult('GET /admin/inventory error', { error: err.message });
-      }
-    }
-
-    async function runFulfillment() {
-      const order_id = document.getElementById('fulfillOrderId').value.trim();
-      const admin_password = document.getElementById('fulfillAdminPassword').value.trim();
-
-      if (!order_id || !admin_password) {
-        setResult('POST /admin/fulfillment/run error', {
-          error: '请先输入 order_id 和管理员密码',
-        });
-        return;
-      }
-
-      try {
-        const resp = await fetch(`${apiBase()}/admin/fulfillment/run`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({
-            admin_password,
-            order_id,
-          }),
-        });
-        const data = await handleResponse(resp);
-        setResult('POST /admin/fulfillment/run', data);
-        state.delivery = data;
-        setState();
-      } catch (err) {
-        setResult('POST /admin/fulfillment/run error', { error: err.message });
-      }
-    }
-
-    async function handleResponse(resp) {
-      const text = await resp.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
-      }
-      if (!resp.ok) {
-        throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
-      }
-      return data;
-    }
-
-    async function checkHealth() {
-      try {
-        const resp = await fetch(`${apiBase()}/health`);
-        const data = await handleResponse(resp);
-        setStatus('healthStatus', true, `后端正常：${JSON.stringify(data)}`);
-        setResult('GET /health', data);
-      } catch (err) {
-        setStatus('healthStatus', false, `后端异常：${err.message}`);
-        setResult('GET /health error', { error: err.message });
-      }
-    }
-
-    function openDocs() {
-      window.open(`${apiBase()}/docs`, '_blank');
-    }
-
-    async function getQuote() {
-      const payload = getFormData();
-      try {
-        const resp = await fetch(`${apiBase()}/quote`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({
-            email: payload.email,
-            user_type: payload.user_type,
-            product_code: payload.product_code,
-            seats: payload.seats,
-          }),
-        });
-        const data = await handleResponse(resp);
-        state.quote = data;
-        setResult('POST /quote', data);
-        setState();
-      } catch (err) {
-        setResult('POST /quote error', { error: err.message });
-      }
-    }
-
-    async function createOrder() {
-      const payload = getFormData();
-      try {
-        const resp = await fetch(`${apiBase()}/orders`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(resp);
-        state.order = data;
-        document.getElementById('orderId').value = data.order_id || '';
-        document.getElementById('fulfillOrderId').value = data.order_id || '';
-        setResult('POST /orders', data);
-        setState();
-        markStep(2);
-      } catch (err) {
-        setResult('POST /orders error', { error: err.message });
-      }
-    }
-
-    async function createUsdtPayment() {
-      const orderId = document.getElementById('orderId').value.trim();
-      if (!orderId) {
-        setResult('POST /payments/usdt/create error', { error: '请先创建订单或填写 order_id。' });
-        return;
-      }
-      try {
-        const resp = await fetch(`${apiBase()}/payments/usdt/create`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({ order_id: orderId }),
-        });
-        const data = await handleResponse(resp);
-        state.usdtPayment = data;
-        updateUsdtCard(data);
-        setResult('POST /payments/usdt/create', data);
-        setState();
-        markStep(3);
-      } catch (err) {
-        setResult('POST /payments/usdt/create error', { error: err.message });
-      }
-    }
-
-    async function refreshUsdtStatus() {
-      const orderId = document.getElementById('orderId').value.trim();
-      if (!orderId) {
-        setResult('GET /payments/usdt/{order_id} error', { error: '请先创建订单或填写 order_id。' });
-        return;
-      }
-      try {
-        const resp = await fetch(`${apiBase()}/payments/usdt/${encodeURIComponent(orderId)}`);
-        const data = await handleResponse(resp);
-        state.usdtPayment = data;
-        updateUsdtCard(data);
-        setResult('GET /payments/usdt/{order_id}', data);
-        setState();
-      } catch (err) {
-        setResult('GET /payments/usdt/{order_id} error', { error: err.message });
-      }
-    }
-
-    async function confirmUsdtPayment() {
-      const orderId = document.getElementById('orderId').value.trim();
-      const adminPassword = document.getElementById('adminPassword').value.trim();
-      const txHash = document.getElementById('txHash').value.trim();
-      if (!orderId || !adminPassword || !txHash) {
-        setResult('POST /admin/payments/usdt/confirm error', { error: '请填写管理员密码、order_id 和 tx_hash。' });
-        return;
-      }
-      try {
-        const resp = await fetch(`${apiBase()}/admin/payments/usdt/confirm`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({
-            admin_password: adminPassword,
-            order_id: orderId,
-            tx_hash: txHash,
-          }),
-        });
-        const data = await handleResponse(resp);
-        state.usdtConfirm = data;
-        state.usdtPayment = data;
-        updateUsdtCard(data);
-        setStatus('confirmStatus', true, '后台已确认到账');
-        setResult('POST /admin/payments/usdt/confirm', data);
-        setState();
-        markStep(4);
-      } catch (err) {
-        setStatus('confirmStatus', false, `确认失败：${err.message}`);
-        setResult('POST /admin/payments/usdt/confirm error', { error: err.message });
-      }
-    }
-
-    async function completeDelivery() {
-      const orderId = document.getElementById('orderId').value.trim();
-      if (!orderId) {
-        setResult('POST /deliveries/{order_id}/complete error', { error: '请先创建订单或填写 order_id。' });
-        return;
-      }
-      try {
-        const resp = await fetch(`${apiBase()}/deliveries/${encodeURIComponent(orderId)}/complete?note=${encodeURIComponent('manual delivery completed')}`, {
-          method: 'POST',
-        });
-        const data = await handleResponse(resp);
-        state.delivery = data;
-        setResult('POST /deliveries/{order_id}/complete', data);
-        setState();
-        markStep(5);
-      } catch (err) {
-        setResult('POST /deliveries/{order_id}/complete error', { error: err.message });
-      }
-    }
-
-    async function sendChat() {
-      const message = document.getElementById('chatMessage').value.trim();
-      if (!message) {
-        setResult('POST /chat error', { error: '请输入聊天内容。' });
-        return;
-      }
-      try {
-        const resp = await fetch(`${apiBase()}/chat`, {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({ message }),
-        });
-        const data = await handleResponse(resp);
-        state.chat = data;
-        setResult('POST /chat', data);
-        setState();
-      } catch (err) {
-        setResult('POST /chat error', { error: err.message });
-      }
-    }
-
-    async function loadAdminOrders() {
-      try {
-        const resp = await fetch(`${apiBase()}/admin/orders`, {
-          headers: adminHeaders(),
-        });
-        const data = await handleResponse(resp);
-        state.adminOrders = data.items || [];
-        renderAdminOrders(state.adminOrders);
-        setStatus('adminStatus', true, `已加载 ${data.count ?? state.adminOrders.length} 条订单`);
-        setResult('GET /admin/orders', data);
-        setState();
-      } catch (err) {
-        renderAdminOrders([]);
-        setStatus('adminStatus', false, `加载失败：${err.message}`);
-        setResult('GET /admin/orders error', { error: err.message });
-      }
-    }
-
-    async function copyWalletAddress() {
-      const walletAddress = document.getElementById('walletAddress').textContent.trim();
-      if (!walletAddress || walletAddress === '暂未生成') {
-        setResult('复制地址', { error: '请先创建 USDT 支付。' });
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(walletAddress);
-        setResult('复制地址', { copied: walletAddress });
-      } catch (err) {
-        setResult('复制地址 error', { error: err.message });
-      }
-    }
-
-    checkHealth();
-  </script>
 </body>
 </html>
