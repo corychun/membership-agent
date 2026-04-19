@@ -1,25 +1,25 @@
-from collections.abc import Generator
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from app.core.config import settings
+from sqlalchemy.orm import sessionmaker
+import os
 
-connect_args = {}
-if settings.database_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# 关键：兼容 Neon + psycopg2
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(
-    settings.database_url,
+    DATABASE_URL,
     pool_pre_ping=True,
-    connect_args=connect_args,
 )
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
 
-class Base(DeclarativeBase):
-    pass
-
-
-def get_db() -> Generator:
+def get_db():
     db = SessionLocal()
     try:
         yield db
