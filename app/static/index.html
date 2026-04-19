@@ -280,7 +280,7 @@
       <h1>Membership Agent Demo</h1>
       <div class="sub">
         这是一个最小内测页面，用来串联报价、下单、USDT(TRC20) 收款、后台确认到账、交付完成、聊天问答和后台订单列表。<br />
-        默认连接 <code>http://127.0.0.1:8010</code>。
+        默认连接 <code>默认连接当前网站域名</code>。
       </div>
     </div>
 
@@ -288,7 +288,7 @@
       <div class="row">
         <div class="field">
           <label for="apiBase">后端地址</label>
-          <input id="apiBase" value="https://aimembership.app" />
+          <input id="apiBase" value="" />
         </div>
         <div class="field">
           <label>快捷入口</label>
@@ -523,66 +523,311 @@
   </div>
 
 <script>
-  // 获取后端地址（优先输入框，否则用当前域名）
-  function getBackendBase() {
-    const input = document.querySelector('input');
-    const value = input ? input.value.trim() : "";
+const state = {
+  quote: null,
+  order: null,
+  usdtPayment: null,
+  delivery: null,
+  chat: null,
+  adminOrders: [],
+  usdtConfirm: null,
+};
 
-    // 如果没填，就用当前域名（关键！）
-    return value || window.location.origin;
+function apiBase() {
+  const input = document.getElementById('apiBase');
+  const value = input ? input.value.trim() : '';
+  return (value || window.location.origin).replace(/\/$/, '');
+}
+
+function syncApiBaseToCurrentOrigin() {
+  const input = document.getElementById('apiBase');
+  if (!input) return;
+
+  const current = window.location.origin;
+  const val = input.value.trim();
+
+  if (!val || val.includes('127.0.0.1') || val.includes('localhost')) {
+    input.value = current;
+  }
+}
+
+function jsonHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+function adminHeaders() {
+  const password = document.getElementById('adminPassword')?.value.trim();
+  return password ? { 'X-Admin-Password': password } : {};
+}
+
+function getFormData() {
+  return {
+    email: document.getElementById('email').value.trim(),
+    target_email: document.getElementById('targetEmail').value.trim(),
+    user_type: document.getElementById('userType').value,
+    product_code: document.getElementById('productCode').value,
+    seats: Number(document.getElementById('seats').value || 1),
+  };
+}
+
+function setResult(title, data) {
+  document.getElementById('resultBox').textContent =
+    `${title}\n\n${JSON.stringify(data, null, 2)}`;
+}
+
+function setState() {
+  document.getElementById('stateBox').textContent =
+    JSON.stringify(state, null, 2);
+}
+
+function markStep(step) {
+  for (let i = 2; i <= 5; i++) {
+    const el = document.getElementById(`step${i}`);
+    if (el) el.classList.remove('active');
+  }
+  if (step >= 2) document.getElementById('step2')?.classList.add('active');
+  if (step >= 3) document.getElementById('step3')?.classList.add('active');
+  if (step >= 4) document.getElementById('step4')?.classList.add('active');
+  if (step >= 5) document.getElementById('step5')?.classList.add('active');
+}
+
+function setStatus(id, ok, text) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  const dot = box.querySelector('.dot');
+  const span = box.querySelector('span:last-child');
+  if (dot) dot.className = `dot ${ok ? 'ok' : 'err'}`;
+  if (span) span.textContent = text;
+}
+
+function updateUsdtCard(payment) {
+  document.getElementById('walletAddress').textContent =
+    payment?.wallet_address || '暂未生成';
+  document.getElementById('networkText').textContent =
+    payment?.network || 'TRC20';
+  document.getElementById('amountUsdt').textContent =
+    payment?.amount_usdt ?? 0;
+  document.getElementById('paymentStatus').textContent =
+    payment?.status || '未创建';
+}
+
+async function safeJson(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { raw: text };
+  }
+}
+
+async function request(path, options = {}) {
+  const url = `${apiBase()}${path}`;
+  const res = await fetch(url, options);
+  const data = await safeJson(res);
+
+  if (!res.ok) {
+    const detail = data?.detail
+      ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
+      : JSON.stringify(data);
+    throw new Error(detail || `HTTP ${res.status}`);
   }
 
-  // 统一请求函数（自动拼接 /api）
-  async function request(path, options = {}) {
-    const base = getBackendBase().replace(/\/+$/, "");
-    const url = `${base}${path}`;
+  return data;
+}
 
-    try {
-      const res = await fetch(url, {
-        method: options.method || "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        },
-        body: options.body ? JSON.stringify(options.body) : undefined
-      });
+async function checkHealth() {
+  try {
+    setStatus('healthStatus', true, '检测中...');
+    const data = await request('/health', { method: 'GET' });
+    setStatus('healthStatus', true, `后端正常：${JSON.stringify(data)}`);
+    setResult('Health Check', data);
+  } catch (err) {
+    setStatus('healthStatus', false, `后端异常：${err.message}`);
+    setResult('Health Check Error', { error: err.message });
+  }
+}
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+function openDocs() {
+  window.open(`${apiBase()}/docs`, '_blank');
+}
 
-      return await res.json();
-    } catch (err) {
-      console.error("请求失败:", url, err);
-      alert(`请求失败: ${err.message}`);
-      throw err;
+async function getQuote() {
+  try {
+    const payload = getFormData();
+    const data = await request('/quote', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify(payload),
+    });
+    state.quote = data;
+    setResult('报价结果', data);
+    setState();
+  } catch (err) {
+    setResult('报价失败', { error: err.message });
+  }
+}
+
+async function createOrder() {
+  try {
+    const payload = getFormData();
+    const data = await request('/orders', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    state.order = data;
+    document.getElementById('orderId').value = data.id || '';
+    setResult('创建订单成功', data);
+    setState();
+    markStep(2);
+  } catch (err) {
+    setResult('创建订单失败', { error: err.message });
+  }
+}
+
+async function createUsdtPayment() {
+  try {
+    const orderId = document.getElementById('orderId').value.trim();
+    if (!orderId) {
+      throw new Error('请先创建订单或填写订单 ID');
     }
-  }
 
-  // 检查健康
-  async function checkHealth() {
-    try {
-      const data = await request("/health");
-      alert("后端正常: " + JSON.stringify(data));
-    } catch (e) {}
-  }
+    const data = await request('/payments/usdt/create', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ order_id: orderId }),
+    });
 
-  // 获取报价
-  async function getQuote() {
-    try {
-      const data = await request("/quote", {
-        method: "POST",
-        body: {
-          email: document.querySelectorAll('input')[0].value,
-          plan: "chatgpt-business-monthly",
-          seats: 3
-        }
-      });
-      console.log(data);
-      alert("报价成功");
-    } catch (e) {}
+    state.usdtPayment = data;
+    updateUsdtCard(data);
+    setResult('创建 USDT 支付', data);
+    setState();
+    markStep(3);
+  } catch (err) {
+    setResult('创建 USDT 支付失败', { error: err.message });
   }
- </script>
+}
+
+async function refreshPaymentStatus() {
+  try {
+    const orderId = document.getElementById('orderId').value.trim();
+    if (!orderId) throw new Error('请填写订单 ID');
+
+    const data = await request(`/payments/${orderId}`, {
+      method: 'GET',
+    });
+
+    state.usdtPayment = data;
+    updateUsdtCard(data);
+    setResult('支付状态', data);
+    setState();
+  } catch (err) {
+    setResult('查询支付状态失败', { error: err.message });
+  }
+}
+
+async function completePayment() {
+  try {
+    const orderId = document.getElementById('orderId').value.trim();
+    if (!orderId) throw new Error('请填写订单 ID');
+
+    const txHash = document.getElementById('txHash').value.trim();
+
+    const data = await request(`/deliveries/${orderId}/complete`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        note: txHash ? `tx_hash:${txHash}` : 'manual completed',
+      }),
+    });
+
+    state.delivery = data;
+    setResult('完成交付', data);
+    setState();
+    markStep(5);
+  } catch (err) {
+    setResult('完成交付失败', { error: err.message });
+  }
+}
+
+async function confirmUsdt() {
+  try {
+    const orderId = document.getElementById('orderId').value.trim();
+    if (!orderId) throw new Error('请填写订单 ID');
+
+    const txHash = document.getElementById('txHash').value.trim();
+    if (!txHash) throw new Error('请填写交易哈希 tx_hash');
+
+    const data = await request('/webhooks/mock-payment', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        order_id: orderId,
+        status: 'paid',
+        tx_hash: txHash,
+      }),
+    });
+
+    state.usdtConfirm = data;
+    setResult('后台确认到账', data);
+    setState();
+    markStep(4);
+  } catch (err) {
+    setResult('后台确认到账失败', { error: err.message });
+  }
+}
+
+async function loadAdminOrders() {
+  try {
+    const headers = adminHeaders();
+    const data = await request('/admin/orders', {
+      method: 'GET',
+      headers,
+    });
+
+    state.adminOrders = data;
+    setResult('后台订单列表', data);
+    setState();
+  } catch (err) {
+    setResult('加载后台订单失败', { error: err.message });
+  }
+}
+
+async function askChat() {
+  try {
+    const question = document.getElementById('chatQuestion').value.trim();
+    if (!question) throw new Error('请输入问题');
+
+    const data = await request('/chat', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ message: question }),
+    });
+
+    state.chat = data;
+    document.getElementById('chatAnswer').textContent =
+      data.reply || JSON.stringify(data, null, 2);
+    setResult('AI 聊天结果', data);
+    setState();
+  } catch (err) {
+    setResult('AI 聊天失败', { error: err.message });
+  }
+}
+
+function copyWallet() {
+  const text = document.getElementById('walletAddress').textContent.trim();
+  if (!text || text === '暂未生成') return;
+  navigator.clipboard.writeText(text);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  syncApiBaseToCurrentOrigin();
+  setState();
+  updateUsdtCard(null);
+  setStatus('healthStatus', true, '等待检测后端状态');
+});
+</script>
 
 </body>
 </html>
