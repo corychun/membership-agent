@@ -1,118 +1,141 @@
-# Membership Agent (Codex-ready)
+# Membership Agent
 
-A minimal FastAPI MVP for a compliant membership procurement agent:
-- quote
-- order creation
-- basic risk scoring
-- mock payment link generation
-- webhook callback
-- manual delivery queue
-- chat assistant endpoint
+A minimal FastAPI MVP for a compliant membership procurement agent.
 
-## 1) Quick start
+--------------------------------------------------
 
-```bash
+Features
+
+- Quote calculation
+- Order creation
+- Risk scoring
+- Mock payment flow
+- Webhook handling
+- Inventory & fulfillment
+- Chat assistant
+
+--------------------------------------------------
+
+Quick Start
+
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-```
 
-Edit `.env`, then create a PostgreSQL database named `membership_agent`.
+Run server:
 
-Run:
-
-```bash
 uvicorn app.main:app --reload
-```
 
-Healthcheck:
+Health check:
 
-```bash
 curl http://127.0.0.1:8000/health
-```
 
-## 2) Recommended Codex task prompt
+Swagger UI:
 
-Copy this into Codex after opening the repo:
+http://127.0.0.1:8000/docs
 
-```text
-You are working on a FastAPI project called membership-agent.
+--------------------------------------------------
 
-Goal:
-1. Install dependencies.
-2. Create the PostgreSQL schema if migrations are not present.
-3. Start the app locally.
-4. Test /health, /quote, /orders, /payments/mock-checkout, /webhooks/mock-payment.
-5. Fix any startup or import issues.
-6. Keep the project compliant: do not add shared-account flows, password collection, region-bypass logic, or resale/account-leasing features.
-7. If environment variables are missing, create a .env from .env.example and clearly mark placeholders that still need manual values.
-8. Prefer small safe edits and explain each change in the final summary.
+Production URL
 
-Expected outcome:
-- Server runs successfully
-- Endpoints respond correctly
-- README startup steps match the real code
-```
+https://membership-agent.onrender.com
 
-## 3) Endpoints
+Swagger:
 
-- `GET /health`
-- `POST /quote`
-- `POST /orders`
-- `POST /payments/mock-checkout`
-- `POST /webhooks/mock-payment`
-- `POST /deliveries/{order_id}/complete`
-- `POST /chat`
+https://membership-agent.onrender.com/docs
 
-## 4) Example calls
+--------------------------------------------------
 
-### Quote
-```bash
-curl -X POST http://127.0.0.1:8000/quote \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email":"user@example.com",
-    "user_type":"team",
-    "product_code":"chatgpt-business-monthly",
-    "seats":3
-  }'
-```
+Environment Variables
 
-### Create order
-```bash
-curl -X POST http://127.0.0.1:8000/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email":"user@example.com",
-    "user_type":"team",
-    "product_code":"chatgpt-business-monthly",
-    "target_email":"user@example.com",
-    "seats":3
-  }'
-```
+DATABASE_URL=your_neon_database_url
+ADMIN_INIT_TOKEN=init-123456
+ADMIN_PASSWORD=123456
+OPENAI_API_KEY=optional
 
-### Mock payment
-```bash
-curl -X POST http://127.0.0.1:8000/payments/mock-checkout \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id":"REPLACE_ORDER_ID"
-  }'
-```
+--------------------------------------------------
 
-### Mock webhook
-```bash
-curl -X POST http://127.0.0.1:8000/webhooks/mock-payment \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id":"REPLACE_ORDER_ID",
-    "status":"paid"
-  }'
-```
+First Step (IMPORTANT)
 
-## 5) Notes
+Initialize database:
 
-- Payment is mocked on purpose so Codex can run the MVP without Stripe credentials.
-- The chat endpoint uses the OpenAI Responses API if `OPENAI_API_KEY` is set; otherwise it falls back to a local canned response.
-- First version uses manual delivery completion to keep the workflow safe and auditable.
+POST /admin/init
+
+Header:
+x-admin-token: init-123456
+
+--------------------------------------------------
+
+API Flow
+
+1. /quote
+2. /orders
+3. /payments/mock-checkout
+4. /webhooks/mock-payment
+
+--------------------------------------------------
+
+Example
+
+Quote
+
+curl -X POST https://membership-agent.onrender.com/quote ^
+-H "Content-Type: application/json" ^
+-d "{ 
+  \"email\": \"user@example.com\",
+  \"user_type\": \"team\",
+  \"product_code\": \"basic_plan\",
+  \"seats\": 1
+}"
+
+--------------------------------------------------
+
+Create Order
+
+curl -X POST https://membership-agent.onrender.com/orders ^
+-H "Content-Type: application/json" ^
+-d "{ 
+  \"email\": \"user@example.com\",
+  \"user_type\": \"team\",
+  \"product_code\": \"basic_plan\",
+  \"target_email\": \"user@example.com\",
+  \"seats\": 1
+}"
+
+--------------------------------------------------
+
+Mock Payment
+
+curl -X POST https://membership-agent.onrender.com/payments/mock-checkout ^
+-H "Content-Type: application/json" ^
+-d "{ 
+  \"order_id\": \"REPLACE_ORDER_ID\"
+}"
+
+--------------------------------------------------
+
+Mock Webhook
+
+curl -X POST https://membership-agent.onrender.com/webhooks/mock-payment ^
+-H "Content-Type: application/json" ^
+-d "{ 
+  \"order_id\": \"REPLACE_ORDER_ID\",
+  \"status\": \"paid\"
+}"
+
+--------------------------------------------------
+
+Default Product
+
+basic_plan
+price: 10 USD
+service_fee: 1 USD
+
+--------------------------------------------------
+
+Notes
+
+- Payment is mocked
+- /admin/init is for setup only
+- Ready for Stripe integration
