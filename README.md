@@ -56,9 +56,15 @@ OPENAI_API_KEY=optional
 
 --------------------------------------------------
 
-First Step (IMPORTANT)
+IMPORTANT
 
-Initialize database:
+You MUST initialize the database before using any API.
+
+Go to:
+
+https://membership-agent.onrender.com/docs
+
+Call:
 
 POST /admin/init
 
@@ -69,10 +75,11 @@ x-admin-token: init-123456
 
 API Flow
 
-1. /quote
-2. /orders
-3. /payments/mock-checkout
-4. /webhooks/mock-payment
+1. /admin/init
+2. /quote
+3. /orders
+4. /payments/mock-checkout
+5. /webhooks/mock-payment
 
 --------------------------------------------------
 
@@ -80,8 +87,8 @@ Example
 
 Quote
 
-curl -X POST https://membership-agent.onrender.com/quote ^
--H "Content-Type: application/json" ^
+curl -X POST https://membership-agent.onrender.com/quote \
+-H "Content-Type: application/json" \
 -d "{ 
   \"email\": \"user@example.com\",
   \"user_type\": \"team\",
@@ -93,8 +100,8 @@ curl -X POST https://membership-agent.onrender.com/quote ^
 
 Create Order
 
-curl -X POST https://membership-agent.onrender.com/orders ^
--H "Content-Type: application/json" ^
+curl -X POST https://membership-agent.onrender.com/orders \
+-H "Content-Type: application/json" \
 -d "{ 
   \"email\": \"user@example.com\",
   \"user_type\": \"team\",
@@ -107,8 +114,8 @@ curl -X POST https://membership-agent.onrender.com/orders ^
 
 Mock Payment
 
-curl -X POST https://membership-agent.onrender.com/payments/mock-checkout ^
--H "Content-Type: application/json" ^
+curl -X POST https://membership-agent.onrender.com/payments/mock-checkout \
+-H "Content-Type: application/json" \
 -d "{ 
   \"order_id\": \"REPLACE_ORDER_ID\"
 }"
@@ -117,8 +124,8 @@ curl -X POST https://membership-agent.onrender.com/payments/mock-checkout ^
 
 Mock Webhook
 
-curl -X POST https://membership-agent.onrender.com/webhooks/mock-payment ^
--H "Content-Type: application/json" ^
+curl -X POST https://membership-agent.onrender.com/webhooks/mock-payment \
+-H "Content-Type: application/json" \
 -d "{ 
   \"order_id\": \"REPLACE_ORDER_ID\",
   \"status\": \"paid\"
@@ -137,5 +144,6 @@ service_fee: 1 USD
 Notes
 
 - Payment is mocked
-- /admin/init is for setup only
+- /admin/init is required before use
+- Use Swagger for easiest testing
 - Ready for Stripe integration
