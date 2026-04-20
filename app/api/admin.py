@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
 import os
 import uuid
+
 from app.core.db import get_db
 from app.models.entities import Order, InventoryItem
 
@@ -15,7 +15,7 @@ def check_admin_password(password: str):
 
 
 # =========================
-# 订单列表
+# 订单列表（已修复）
 # =========================
 @router.get("/orders")
 def list_orders(admin_password: str = Query(...), db: Session = Depends(get_db)):
@@ -26,7 +26,7 @@ def list_orders(admin_password: str = Query(...), db: Session = Depends(get_db))
     return {
         "items": [
             {
-                "order_id": o.order_id,
+                "order_id": str(o.id),   # ✅ 修复
                 "email": o.email,
                 "product_code": o.product_code,
                 "amount": o.amount,
@@ -84,19 +84,12 @@ def get_inventory(admin_password: str = Query(...), db: Session = Depends(get_db
 
 
 # =========================
-# 自动发货
+# 自动发货（保持你原逻辑）
 # =========================
-
-
-import uuid
-from fastapi import HTTPException
-
 @router.post("/fulfillment/run")
 def run_fulfillment(data: dict, db: Session = Depends(get_db)):
-    # ✅ 管理员校验
     check_admin_password(data.get("admin_password"))
 
-    # ✅ 查订单
     order = db.query(Order).filter(
         Order.id == uuid.UUID(data["order_id"])
     ).first()
@@ -107,7 +100,6 @@ def run_fulfillment(data: dict, db: Session = Depends(get_db)):
     if order.payment_status != "paid":
         raise HTTPException(status_code=400, detail="Order not paid")
 
-    # ✅ 找库存
     item = (
         db.query(InventoryItem)
         .filter(
@@ -120,7 +112,6 @@ def run_fulfillment(data: dict, db: Session = Depends(get_db)):
     if not item:
         raise HTTPException(status_code=400, detail="No inventory available")
 
-    # ✅ 发货
     item.status = "assigned"
     item.assigned_order_id = str(order.id)
 
