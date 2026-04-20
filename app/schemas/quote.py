@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class QuoteRequest(BaseModel):
     email: EmailStr
-    user_type: str = Field(pattern="^(individual|team|enterprise)$")
+    user_type: str = Field(regex="^(individual|team|enterprise)$")
     product_code: str
     seats: int = Field(default=1, ge=1, le=500)
 
