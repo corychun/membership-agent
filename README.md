@@ -19,7 +19,7 @@ Features
 Quick Start
 
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate   (Windows: .venv\Scripts\activate)
 pip install -r requirements.txt
 cp .env.example .env
 
@@ -60,41 +60,42 @@ IMPORTANT
 
 You MUST initialize the database before using any API.
 
-Go to:
-
+Step 1:
+Open Swagger:
 https://membership-agent.onrender.com/docs
 
+Step 2:
 Call:
-
 POST /admin/init
 
-Header:
+Step 3:
+Add Header:
 x-admin-token: init-123456
 
 --------------------------------------------------
 
-API Flow
+API Flow (Correct Order)
 
-1. /admin/init
-2. /quote
-3. /orders
-4. /payments/mock-checkout
-5. /webhooks/mock-payment
+1. /admin/init          (setup database)
+2. /quote               (get price)
+3. /orders              (create order)
+4. /payments/mock-checkout (simulate payment)
+5. /webhooks/mock-payment  (mark as paid)
 
 --------------------------------------------------
 
-Example
+Example (Mac / Linux)
 
 Quote
 
 curl -X POST https://membership-agent.onrender.com/quote \
 -H "Content-Type: application/json" \
--d "{ 
-  \"email\": \"user@example.com\",
-  \"user_type\": \"team\",
-  \"product_code\": \"basic_plan\",
-  \"seats\": 1
-}"
+-d '{
+  "email": "user@example.com",
+  "user_type": "team",
+  "product_code": "basic_plan",
+  "seats": 1
+}'
 
 --------------------------------------------------
 
@@ -102,13 +103,13 @@ Create Order
 
 curl -X POST https://membership-agent.onrender.com/orders \
 -H "Content-Type: application/json" \
--d "{ 
-  \"email\": \"user@example.com\",
-  \"user_type\": \"team\",
-  \"product_code\": \"basic_plan\",
-  \"target_email\": \"user@example.com\",
-  \"seats\": 1
-}"
+-d '{
+  "email": "user@example.com",
+  "user_type": "team",
+  "product_code": "basic_plan",
+  "target_email": "user@example.com",
+  "seats": 1
+}'
 
 --------------------------------------------------
 
@@ -116,9 +117,9 @@ Mock Payment
 
 curl -X POST https://membership-agent.onrender.com/payments/mock-checkout \
 -H "Content-Type: application/json" \
--d "{ 
-  \"order_id\": \"REPLACE_ORDER_ID\"
-}"
+-d '{
+  "order_id": "REPLACE_ORDER_ID"
+}'
 
 --------------------------------------------------
 
@@ -126,9 +127,26 @@ Mock Webhook
 
 curl -X POST https://membership-agent.onrender.com/webhooks/mock-payment \
 -H "Content-Type: application/json" \
+-d '{
+  "order_id": "REPLACE_ORDER_ID",
+  "status": "paid"
+}'
+
+--------------------------------------------------
+
+Windows CMD Version
+
+Replace "\" with "^"
+
+Example:
+
+curl -X POST https://membership-agent.onrender.com/quote ^
+-H "Content-Type: application/json" ^
 -d "{ 
-  \"order_id\": \"REPLACE_ORDER_ID\",
-  \"status\": \"paid\"
+  \"email\": \"user@example.com\",
+  \"user_type\": \"team\",
+  \"product_code\": \"basic_plan\",
+  \"seats\": 1
 }"
 
 --------------------------------------------------
@@ -143,7 +161,7 @@ service_fee: 1 USD
 
 Notes
 
-- Payment is mocked
+- Payment is mocked (no Stripe yet)
 - /admin/init is required before use
-- Use Swagger for easiest testing
+- Swagger UI is the easiest way to test
 - Ready for Stripe integration
