@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, quote, orders, payments, webhooks, deliveries, chat, stripe
+from app.api import admin, quote, orders, payments, webhooks, deliveries, chat
 from app.init_db import init_db
 from app.seed_products import seed_products
 
@@ -36,7 +36,6 @@ app.include_router(webhooks.router)
 app.include_router(deliveries.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
-app.include_router(stripe.router)
 
 # =========================
 # 临时初始化接口（Render 免费版可用）
