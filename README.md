@@ -9,8 +9,8 @@ Features
 - Quote calculation
 - Order creation
 - Risk scoring
-- Mock payment flow
-- Webhook handling
+- NOWPayments checkout
+- NOWPayments webhook handling
 - Inventory & fulfillment
 - Chat assistant
 
@@ -52,7 +52,14 @@ Environment Variables
 DATABASE_URL=your_neon_database_url
 ADMIN_INIT_TOKEN=init-123456
 ADMIN_PASSWORD=123456
-OPENAI_API_KEY=optional
+OPENAI_API_KEY=your_openai_key_optional
+
+NOWPAYMENTS_API_KEY=your_nowpayments_api_key
+NOWPAYMENTS_IPN_SECRET=your_nowpayments_ipn_secret
+NOWPAYMENTS_IPN_CALLBACK_URL=https://membership-agent.onrender.com/webhooks/nowpayments
+NOWPAYMENTS_BASE_URL=https://api.nowpayments.io/v1
+NOWPAYMENTS_SUCCESS_URL=https://membership-agent.onrender.com/success
+NOWPAYMENTS_CANCEL_URL=https://membership-agent.onrender.com/cancel
 
 --------------------------------------------------
 
@@ -76,11 +83,12 @@ x-admin-token: init-123456
 
 API Flow (Correct Order)
 
-1. /admin/init          (setup database)
-2. /quote               (get price)
-3. /orders              (create order)
-4. /payments/mock-checkout (simulate payment)
-5. /webhooks/mock-payment  (mark as paid)
+1. /admin/init
+2. /quote
+3. /orders
+4. /payments/checkout
+5. User opens invoice_url and pays
+6. NOWPayments sends callback to /webhooks/nowpayments
 
 --------------------------------------------------
 
@@ -113,41 +121,14 @@ curl -X POST https://membership-agent.onrender.com/orders \
 
 --------------------------------------------------
 
-Mock Payment
+Create NOWPayments Checkout
 
-curl -X POST https://membership-agent.onrender.com/payments/mock-checkout \
--H "Content-Type: application/json" \
--d '{
-  "order_id": "REPLACE_ORDER_ID"
-}'
-
---------------------------------------------------
-
-Mock Webhook
-
-curl -X POST https://membership-agent.onrender.com/webhooks/mock-payment \
+curl -X POST https://membership-agent.onrender.com/payments/checkout \
 -H "Content-Type: application/json" \
 -d '{
   "order_id": "REPLACE_ORDER_ID",
-  "status": "paid"
+  "pay_currency": "usdttrc20"
 }'
-
---------------------------------------------------
-
-Windows CMD Version
-
-Replace "\" with "^"
-
-Example:
-
-curl -X POST https://membership-agent.onrender.com/quote ^
--H "Content-Type: application/json" ^
--d "{ 
-  \"email\": \"user@example.com\",
-  \"user_type\": \"team\",
-  \"product_code\": \"basic_plan\",
-  \"seats\": 1
-}"
 
 --------------------------------------------------
 
@@ -161,7 +142,7 @@ service_fee: 1 USD
 
 Notes
 
-- Payment is mocked (no Stripe yet)
-- /admin/init is required before use
+- NOWPayments webhook path: /webhooks/nowpayments
+- /payments/mock-checkout is kept only for backward compatibility
+- /webhooks/mock-payment is kept only for local testing
 - Swagger UI is the easiest way to test
-- Ready for Stripe integration
