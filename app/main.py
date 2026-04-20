@@ -10,6 +10,9 @@ import app.models.entities  # noqa: F401
 
 
 app = FastAPI(title="membership-agent")
+from app.core.db import Base, engine
+Base.metadata.create_all(bind=engine)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
