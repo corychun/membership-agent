@@ -3,25 +3,15 @@ from app.models.entities import Product
 
 DEFAULT_PRODUCTS = [
     {
-        "code": "chatgpt-business-monthly",
-        "provider": "OpenAI",
-        "official_plan_name": "ChatGPT Business",
+        "code": "basic_plan",
+        "provider": "openai",
+        "official_plan_name": "Basic",
         "billing_cycle": "monthly",
-        "official_price": 25.0,
+        "official_price": 10.0,
         "currency": "USD",
-        "service_fee": 3.0,
-        "deliver_method": "enterprise_seat",
-    },
-    {
-        "code": "ai-tools-procurement-service",
-        "provider": "Internal",
-        "official_plan_name": "AI Tools Procurement Service",
-        "billing_cycle": "monthly",
-        "official_price": 20.0,
-        "currency": "USD",
-        "service_fee": 5.0,
-        "deliver_method": "manual_invite",
-    },
+        "service_fee": 1.0,
+        "deliver_method": "api",
+    }
 ]
 
 
