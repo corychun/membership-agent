@@ -1,30 +1,43 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import stripe
+from fastapi import APIRouter, Request, HTTPException
 from sqlalchemy.orm import Session
-
-from app.core.db import get_db
+from app.core.db import SessionLocal
 from app.models.entities import Order
-from app.schemas.payment import MockWebhookRequest
-from app.services.payment_service import mark_payment_status
-from app.services.delivery_service import create_delivery_task
 
-router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+router = APIRouter()
+
+endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
-@router.post("/mock-payment")
-def mock_payment_webhook(payload: MockWebhookRequest, db: Session = Depends(get_db)):
-    order = db.query(Order).filter(Order.id == payload.order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+@router.post("/webhooks/stripe")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
 
-    order = mark_payment_status(db, order, payload.status)
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid webhook")
 
-    if payload.status == "paid" and order.review_status == "not_required":
-        create_delivery_task(db, order, "manual_invite")
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
 
-    return {
-        "order_id": str(order.id),
-        "status": order.status,
-        "payment_status": order.payment_status,
-        "delivery_status": order.delivery_status,
-        "review_status": order.review_status,
-    }
+        order_id = session["metadata"].get("order_id")
+
+        db: Session = SessionLocal()
+
+        try:
+            order = db.query(Order).filter(Order.id == order_id).first()
+
+            if order:
+                order.payment_status = "paid"
+                order.status = "paid"
+                db.commit()
+        finally:
+            db.close()
+
+    return {"ok": True}
