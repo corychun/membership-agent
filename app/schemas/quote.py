@@ -2,10 +2,25 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class QuoteRequest(BaseModel):
-    email: EmailStr
-    user_type: str = Field(regex="^(individual|team|enterprise)$")
-    product_code: str
-    seats: int = Field(default=1, ge=1, le=500)
+    email: EmailStr = Field(example="user@example.com")
+
+    user_type: str = Field(
+        default="individual",
+        regex="^(individual|team|enterprise)$",
+        example="team"
+    )
+
+    product_code: str = Field(
+        default="basic_plan",
+        example="basic_plan"
+    )
+
+    seats: int = Field(
+        default=1,
+        ge=1,
+        le=500,
+        example=1
+    )
 
 
 class QuoteResponse(BaseModel):
