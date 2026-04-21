@@ -12,6 +12,9 @@ router = APIRouter()
 def mock_payment(data: dict, db: Session = Depends(get_db)):
     order = db.query(Order).filter_by(order_no=data["order_no"]).first()
 
+    if not order:
+        return {"error": "order not found"}
+
     result = mark_paid_and_deliver(db, order)
 
     return {
