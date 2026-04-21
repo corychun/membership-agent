@@ -40,7 +40,7 @@ async def nowpayments_webhook(request: Request):
         or payload.get("purchaseid")
     )
 
-    payment_status = (
+    payment_status = str(
         payload.get("payment_status")
         or payload.get("paymentstatus")
         or payload.get("paymentStatus")
@@ -58,14 +58,27 @@ async def nowpayments_webhook(request: Request):
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
 
+        # NOWPayments 典型状态：
+        # waiting / confirming / confirmed / sending / finished / failed / refunded / expired
         if payment_status == "finished":
             order.payment_status = "paid"
-            order.status = "paid"
+            order.status = "completed"
+            order.delivery_status = "ready"
+
+        elif payment_status in {"confirming", "confirmed", "sending"}:
+            order.payment_status = payment_status
+            order.status = "processing"
+
         elif payment_status in {"failed", "expired", "refunded"}:
             order.payment_status = payment_status
             order.status = "payment_failed"
+
+        elif payment_status == "waiting":
+            order.payment_status = "waiting"
+            order.status = "created"
+
         else:
-            order.payment_status = payment_status or "processing"
+            order.payment_status = payment_status or "unknown"
 
         db.commit()
 
@@ -73,12 +86,15 @@ async def nowpayments_webhook(request: Request):
             "ok": True,
             "order_id": str(order.id),
             "payment_status": order.payment_status,
+            "status": order.status,
+            "delivery_status": order.delivery_status,
         }
+
     finally:
         db.close()
 
 
-# 为了兼容你之前的 mock 调试流程，保留旧接口
+# 本地调试备用：手动把订单改成 paid
 @router.post("/mock-payment")
 async def mock_payment(request: Request):
     payload = await request.json()
@@ -98,9 +114,11 @@ async def mock_payment(request: Request):
 
         if status == "paid":
             order.payment_status = "paid"
-            order.status = "paid"
+            order.status = "completed"
+            order.delivery_status = "ready"
         else:
             order.payment_status = status
+            order.status = "processing"
 
         db.commit()
 
@@ -108,6 +126,9 @@ async def mock_payment(request: Request):
             "ok": True,
             "order_id": str(order.id),
             "payment_status": order.payment_status,
+            "status": order.status,
+            "delivery_status": order.delivery_status,
         }
+
     finally:
         db.close()
