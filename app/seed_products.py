@@ -8,7 +8,17 @@ def seed_products():
         existing = db.query(Product).filter(Product.code == "basic_plan").first()
 
         if existing:
-            print("⏭ basic_plan exists, skip")
+            existing.provider = "openai"
+            existing.official_plan_name = "Basic"
+            existing.billing_cycle = "monthly"
+            existing.official_price = 18
+            existing.currency = "USD"
+            existing.service_fee = 2
+            existing.deliver_method = "api"
+            existing.is_active = True
+
+            db.commit()
+            print("✅ basic_plan updated to total = 20 USD")
             return
 
         p = Product(
@@ -16,16 +26,16 @@ def seed_products():
             provider="openai",
             official_plan_name="Basic",
             billing_cycle="monthly",
-            official_price=10,
+            official_price=18,
             currency="USD",
-            service_fee=1,
+            service_fee=2,
             deliver_method="api",
             is_active=True
         )
 
         db.add(p)
         db.commit()
-        print("✅ basic_plan created")
+        print("✅ basic_plan created with total = 20 USD")
 
     except Exception as e:
         db.rollback()
