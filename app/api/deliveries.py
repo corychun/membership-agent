@@ -11,4 +11,8 @@ router = APIRouter()
 @router.post("/deliveries/trigger")
 def trigger(data: dict, db: Session = Depends(get_db)):
     order = db.query(Order).filter_by(order_no=data["order_no"]).first()
+
+    if not order:
+        return {"error": "order not found"}
+
     return deliver_order(db, order)
