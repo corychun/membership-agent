@@ -1,134 +1,63 @@
-import json
-from uuid import UUID
-
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
+from app.db import get_db
+from app.models.order import Order
 
-from app.core.db import SessionLocal
-from app.models.entities import Order
-from app.services.nowpayments_service import verify_ipn_signature
-
-router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+router = APIRouter()
 
 
-def _load_order(db: Session, raw_order_id: str):
-    try:
-        order_uuid = UUID(str(raw_order_id))
-    except Exception:
-        return None
+# =========================
+# NOWPayments Webhook（真实回调）
+# =========================
+@router.post("/webhooks/nowpayments")
+async def nowpayments_webhook(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
 
-    return db.query(Order).filter(Order.id == order_uuid).first()
-
-
-@router.post("/nowpayments")
-async def nowpayments_webhook(request: Request):
-    raw_body = await request.body()
-    signature = request.headers.get("x-nowpayments-sig")
-
-    if not verify_ipn_signature(raw_body, signature):
-        raise HTTPException(status_code=401, detail="Invalid NOWPayments signature")
-
-    try:
-        payload = json.loads(raw_body.decode("utf-8"))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-
-    order_id = (
-        payload.get("order_id")
-        or payload.get("orderid")
-        or payload.get("purchase_id")
-        or payload.get("purchaseid")
-    )
-
-    payment_status = str(
-        payload.get("payment_status")
-        or payload.get("paymentstatus")
-        or payload.get("paymentStatus")
-        or ""
-    ).lower()
+    payment_status = data.get("payment_status")
+    order_id = data.get("order_id")
 
     if not order_id:
-        raise HTTPException(status_code=400, detail="order_id not found in webhook payload")
+        return {"error": "missing order_id"}
 
-    db: Session = SessionLocal()
+    order = db.query(Order).filter(Order.id == order_id).first()
 
-    try:
-        order = _load_order(db, order_id)
+    if not order:
+        return {"error": "order not found"}
 
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
+    # 根据支付状态更新
+    if payment_status in ["finished", "confirmed"]:
+        order.payment_status = "finished"
+        order.status = "completed"
 
-        # NOWPayments 典型状态：
-        # waiting / confirming / confirmed / sending / finished / failed / refunded / expired
-        if payment_status == "finished":
-            order.payment_status = "paid"
-            order.status = "completed"
-            order.delivery_status = "ready"
+    elif payment_status in ["failed", "expired"]:
+        order.payment_status = "failed"
+        order.status = "failed"
 
-        elif payment_status in {"confirming", "confirmed", "sending"}:
-            order.payment_status = payment_status
-            order.status = "processing"
+    else:
+        order.payment_status = "waiting"
 
-        elif payment_status in {"failed", "expired", "refunded"}:
-            order.payment_status = payment_status
-            order.status = "payment_failed"
+    db.commit()
 
-        elif payment_status == "waiting":
-            order.payment_status = "waiting"
-            order.status = "created"
-
-        else:
-            order.payment_status = payment_status or "unknown"
-
-        db.commit()
-
-        return {
-            "ok": True,
-            "order_id": str(order.id),
-            "payment_status": order.payment_status,
-            "status": order.status,
-            "delivery_status": order.delivery_status,
-        }
-
-    finally:
-        db.close()
+    return {"message": "ok"}
 
 
-# 本地调试备用：手动把订单改成 paid
-@router.post("/mock-payment")
-async def mock_payment(request: Request):
-    payload = await request.json()
-    order_id = payload.get("order_id")
-    status = payload.get("status", "paid")
+# =========================
+# Mock 支付（测试用，一键成功）
+# =========================
+@router.post("/webhooks/mock-payment")
+def mock_payment(db: Session = Depends(get_db)):
+    # 取最新一条订单
+    order = db.query(Order).order_by(Order.created_at.desc()).first()
 
-    if not order_id:
-        raise HTTPException(status_code=400, detail="order_id is required")
+    if not order:
+        return {"error": "no order found"}
 
-    db: Session = SessionLocal()
+    order.payment_status = "finished"
+    order.status = "completed"
 
-    try:
-        order = _load_order(db, order_id)
+    db.commit()
 
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
-
-        if status == "paid":
-            order.payment_status = "paid"
-            order.status = "completed"
-            order.delivery_status = "ready"
-        else:
-            order.payment_status = status
-            order.status = "processing"
-
-        db.commit()
-
-        return {
-            "ok": True,
-            "order_id": str(order.id),
-            "payment_status": order.payment_status,
-            "status": order.status,
-            "delivery_status": order.delivery_status,
-        }
-
-    finally:
-        db.close()
+    return {
+        "message": "mock payment success",
+        "order_id": str(order.id)
+    }
