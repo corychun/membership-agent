@@ -14,8 +14,6 @@ def create_order(data: dict, db: Session = Depends(get_db)):
         order_no=f"ORD-{uuid4().hex[:8].upper()}",
         product_code=data.get("product_code"),
         customer_email=data.get("customer_email"),
-        amount_usd=9.9,
-        currency="USD"
     )
 
     db.add(order)
