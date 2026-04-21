@@ -5,7 +5,6 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -14,16 +13,11 @@ from app.models.entities import Order
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 
-class MockPaymentRequest(BaseModel):
-    order_id: str
-    status: str = "paid"
-
-
 def _normalize_payment_status(raw_status: Optional[str]) -> str:
     if not raw_status:
         return "waiting"
 
-    s = raw_status.lower().strip()
+    s = str(raw_status).lower().strip()
 
     if s in {"finished", "confirmed", "paid", "success"}:
         return "finished"
@@ -49,8 +43,13 @@ def _apply_order_status(order: Order, payment_status: str) -> None:
 @router.post("/nowpayments")
 async def nowpayments_webhook(request: Request, db: Session = Depends(get_db)):
     raw_body = await request.body()
-    data = json.loads(raw_body.decode("utf-8") or "{}")
 
+    try:
+        data = json.loads(raw_body.decode("utf-8") or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    # 如果你配置了 NOWPAYMENTS_IPN_SECRET，就校验签名
     ipn_secret = os.getenv("NOWPAYMENTS_IPN_SECRET", "").strip()
     signature = request.headers.get("x-nowpayments-sig", "").strip()
 
@@ -80,6 +79,7 @@ async def nowpayments_webhook(request: Request, db: Session = Depends(get_db)):
 
     return {
         "ok": True,
+        "source": "nowpayments",
         "order_id": str(order.id),
         "payment_status": order.payment_status,
         "status": order.status,
@@ -87,13 +87,27 @@ async def nowpayments_webhook(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/mock-payment")
-def mock_payment(payload: MockPaymentRequest, db: Session = Depends(get_db)):
-    order = db.query(Order).filter(Order.id == payload.order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+def mock_payment(db: Session = Depends(get_db)):
+    # 优先取最近一笔 waiting / unpaid / created 的订单
+    order = (
+        db.query(Order)
+        .filter(
+            Order.payment_status.in_(["waiting", "unpaid"]),
+            Order.status.in_(["created", "pending", "waiting"]),
+        )
+        .order_by(Order.created_at.desc())
+        .first()
+    )
 
-    payment_status = _normalize_payment_status(payload.status)
-    _apply_order_status(order, payment_status)
+    # 如果没有，再退回取最新一笔订单，避免 Swagger 直接 500
+    if not order:
+        order = db.query(Order).order_by(Order.created_at.desc()).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="No order found")
+
+    order.payment_status = "finished"
+    order.status = "completed"
 
     db.commit()
     db.refresh(order)
