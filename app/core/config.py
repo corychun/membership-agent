@@ -36,6 +36,14 @@ class Settings(BaseSettings):
         "https://membership-agent.onrender.com/cancel"
     )
 
+    smtp_host: str | None = os.getenv("SMTP_HOST")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username: str | None = os.getenv("SMTP_USERNAME")
+    smtp_password: str | None = os.getenv("SMTP_PASSWORD")
+    smtp_from_email: str | None = os.getenv("SMTP_FROM_EMAIL")
+    smtp_from_name: str = os.getenv("SMTP_FROM_NAME", "Membership Agent")
+    smtp_use_tls: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+
     class Config:
         env_file = ".env"
 
