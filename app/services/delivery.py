@@ -1,19 +1,37 @@
 from sqlalchemy.orm import Session
-from app.models.entities import Order, DeliveryRecord, MembershipEntitlement
+from app.models.entities import Order, DeliveryRecord, MembershipEntitlement, InventoryItem
 from datetime import datetime
 
 
+def get_inventory_code(db: Session, product_code: str):
+    item = db.query(InventoryItem)\
+        .filter(InventoryItem.product_code == product_code, InventoryItem.is_used == 0)\
+        .first()
+
+    if not item:
+        raise Exception("库存不足")
+
+    return item
+
+
 def deliver_order(db: Session, order: Order):
-    # 1️⃣ 标记订单已发货
+    # 1️⃣ 获取库存
+    item = get_inventory_code(db, order.product_code)
+
+    # 2️⃣ 标记库存已使用
+    item.is_used = 1
+    item.used_at = datetime.utcnow()
+    item.order_id = order.id
+
+    # 3️⃣ 发货内容
+    content = item.code
+
+    # 4️⃣ 更新订单
     order.delivery_status = "delivered"
     order.status = "completed"
-
-    # 2️⃣ 生成发货内容（你可以以后改成真实卡密）
-    content = f"VIP-CODE-{order.order_no}"
-
     order.delivery_content = content
 
-    # 3️⃣ 写入发货记录
+    # 5️⃣ 发货记录
     record = DeliveryRecord(
         order_id=order.id,
         status="success",
@@ -22,7 +40,7 @@ def deliver_order(db: Session, order: Order):
     )
     db.add(record)
 
-    # 4️⃣ 写入会员权益（⚠️ 修复点在这里）
+    # 6️⃣ 权益记录
     entitlement = MembershipEntitlement(
         order_id=order.id,
         entitlement_code=content,
@@ -39,11 +57,9 @@ def deliver_order(db: Session, order: Order):
 
 
 def mark_paid_and_deliver(db: Session, order: Order):
-    # 标记支付成功
     order.payment_status = "paid"
     order.status = "paid"
 
     db.commit()
 
-    # 发货
     return deliver_order(db, order)
