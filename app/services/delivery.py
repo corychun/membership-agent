@@ -29,7 +29,6 @@ def deliver_order(db: Session, order: Order):
 
     entitlement = MembershipEntitlement(
         order_id=order.id,
-        product_code=order.product_code,
         entitlement_code=code,
         activation_result=result,
         expires_at=expires_at,
