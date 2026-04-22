@@ -40,3 +40,18 @@ class MembershipEntitlement(Base):
 
     entitlement_code = Column(String(100))
     activation_result = Column(Text)
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True)
+
+    product_code = Column(String(100), index=True)
+    code = Column(Text)  # 卡密 / 账号 / key
+
+    is_used = Column(Integer, default=0)  # 0=未使用 1=已使用
+    used_at = Column(DateTime)
+
+    order_id = Column(Integer, ForeignKey("orders.id"))
+
+    created_at = Column(DateTime, default=datetime.utcnow)
