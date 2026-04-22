@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -21,9 +21,6 @@ def deliver_order(db: Session, order: Order):
             "message": "already delivered",
         }
 
-    duration_days = 30
-    expires_at = datetime.utcnow() + timedelta(days=duration_days)
-
     code = f"ENT-{uuid4().hex[:8].upper()}"
     result = f"Activation success | order={order.order_no} | code={code}"
 
@@ -31,7 +28,6 @@ def deliver_order(db: Session, order: Order):
         order_id=order.id,
         entitlement_code=code,
         activation_result=result,
-        expires_at=expires_at,
     )
 
     record = DeliveryRecord(
