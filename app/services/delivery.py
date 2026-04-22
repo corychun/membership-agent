@@ -1,87 +1,49 @@
-from datetime import datetime
-from uuid import uuid4
-
 from sqlalchemy.orm import Session
-
-from app.models.entities import DeliveryRecord, MembershipEntitlement, Order
-from app.services.email_service import send_delivery_email
+from app.models.entities import Order, DeliveryRecord, MembershipEntitlement
+from datetime import datetime
 
 
 def deliver_order(db: Session, order: Order):
-    if not order:
-        raise ValueError("order not found")
+    # 1️⃣ 标记订单已发货
+    order.delivery_status = "delivered"
+    order.status = "completed"
 
-    existing = db.query(MembershipEntitlement).filter_by(order_id=order.id).first()
-    if existing:
-        return {
-            "delivered": True,
-            "idempotent": True,
-            "content": existing.activation_result,
-            "email_sent": False,
-            "message": "already delivered",
-        }
+    # 2️⃣ 生成发货内容（你可以以后改成真实卡密）
+    content = f"VIP-CODE-{order.order_no}"
 
-    code = f"ENT-{uuid4().hex[:8].upper()}"
-    result = f"Activation success | order={order.order_no} | code={code}"
+    order.delivery_content = content
 
-    entitlement = MembershipEntitlement(
-        order_id=order.id,
-        entitlement_code=code,
-        activation_result=result,
-    )
-
+    # 3️⃣ 写入发货记录
     record = DeliveryRecord(
         order_id=order.id,
-        status="delivered",
-        content=result,
-        delivered_at=datetime.utcnow(),
+        status="success",
+        content=content,
+        created_at=datetime.utcnow()
     )
-
-    order.delivery_status = "delivered"
-    order.delivery_content = result
-
-    db.add(entitlement)
     db.add(record)
-    db.add(order)
+
+    # 4️⃣ 写入会员权益（⚠️ 修复点在这里）
+    entitlement = MembershipEntitlement(
+        order_id=order.id,
+        entitlement_code=content,
+        activation_result="activated"
+    )
+    db.add(entitlement)
+
     db.commit()
-    db.refresh(order)
-
-    email_result = None
-    email_sent = False
-    email_error = None
-
-    if order.customer_email:
-        try:
-            email_result = send_delivery_email(
-                target_email=order.customer_email,
-                product_code=order.product_code,
-                order_no=order.order_no,
-                delivery_content=result,
-            )
-            email_sent = True
-        except Exception as e:
-            email_error = str(e)
 
     return {
-        "delivered": True,
-        "idempotent": False,
-        "content": result,
-        "email_sent": email_sent,
-        "email_result": email_result,
-        "email_error": email_error,
+        "message": "delivered",
+        "content": content
     }
 
 
 def mark_paid_and_deliver(db: Session, order: Order):
-    if not order:
-        raise ValueError("order not found")
+    # 标记支付成功
+    order.payment_status = "paid"
+    order.status = "paid"
 
-    order.payment_status = "finished"
-    order.status = "completed"
-    order.paid_at = datetime.utcnow()
-
-    db.add(order)
     db.commit()
-    db.refresh(order)
 
+    # 发货
     return deliver_order(db, order)
