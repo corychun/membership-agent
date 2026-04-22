@@ -2,7 +2,6 @@ import hashlib
 import hmac
 import json
 from typing import Any
-from uuid import UUID
 
 import requests
 
@@ -28,23 +27,18 @@ def _sort_object(obj: Any) -> Any:
 
 
 def create_invoice(order, pay_currency: str = "usdttrc20") -> dict:
-    """
-    使用 NOWPayments invoice 接口创建托管支付页
-    """
     url = f"{settings.nowpayments_base_url}/invoice"
 
-    order_id = str(order.id) if isinstance(order.id, UUID) else str(order.id)
-
     payload = {
-        "price_amount": float(order.amount),
+        "price_amount": float(order.amount_usd),
         "price_currency": "usd",
         "pay_currency": pay_currency,
-        "order_id": order_id,
+        "order_id": str(order.order_no),
         "order_description": f"Membership order {order.product_code}",
         "ipn_callback_url": settings.nowpayments_ipn_callback_url,
         "success_url": settings.nowpayments_success_url,
         "cancel_url": settings.nowpayments_cancel_url,
-        "customer_email": getattr(order, "email", None),
+        "customer_email": getattr(order, "customer_email", None),
     }
 
     response = requests.post(url, headers=_headers(), json=payload, timeout=30)
@@ -61,12 +55,6 @@ def create_invoice(order, pay_currency: str = "usdttrc20") -> dict:
 
 
 def verify_ipn_signature(raw_body: bytes, signature: str | None) -> bool:
-    """
-    NOWPayments 文档要求：
-    1. body JSON 按 key 排序
-    2. 用 IPN secret 做 HMAC-SHA512
-    3. 与 x-nowpayments-sig 对比
-    """
     if not signature:
         return False
 
