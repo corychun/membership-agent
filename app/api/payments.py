@@ -1,7 +1,6 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.core.db import get_db
 from app.models.entities import Order
@@ -10,53 +9,52 @@ from app.services.nowpayments_service import create_invoice
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
-def _get_order(db: Session, order_id: str):
-    try:
-        order_uuid = UUID(order_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid order_id")
+class CheckoutRequest(BaseModel):
+    order_no: str
+    pay_currency: str = "usdttrc20"
 
-    order = db.query(Order).filter(Order.id == order_uuid).first()
+
+def _get_order_by_order_no(db: Session, order_no: str) -> Order:
+    order = db.query(Order).filter(Order.order_no == order_no).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
 
 
 @router.post("/checkout")
-def nowpayments_checkout(data: dict, db: Session = Depends(get_db)):
-    order_id = data.get("order_id")
-    pay_currency = data.get("pay_currency", "usdttrc20")
+def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)):
+    order = _get_order_by_order_no(db, payload.order_no)
 
-    if not order_id:
-        raise HTTPException(status_code=400, detail="order_id is required")
-
-    order = _get_order(db, order_id)
-
-    if getattr(order, "payment_status", None) == "paid":
+    if order.payment_status == "finished":
         raise HTTPException(status_code=400, detail="Order already paid")
 
     try:
-        invoice = create_invoice(order=order, pay_currency=pay_currency)
+        invoice = create_invoice(order=order, pay_currency=payload.pay_currency)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     order.payment_status = "waiting"
+    external_id = invoice.get("id") or invoice.get("invoice_id") or invoice.get("payment_id")
+    if external_id:
+        order.external_payment_id = str(external_id)
+
+    db.add(order)
     db.commit()
+    db.refresh(order)
 
     return {
         "provider": "nowpayments",
-        "order_id": str(order.id),
+        "order_no": order.order_no,
         "payment_status": order.payment_status,
         "invoice_id": invoice.get("id") or invoice.get("invoice_id"),
         "invoice_url": invoice.get("invoice_url") or invoice.get("url"),
-        "pay_currency": pay_currency,
+        "pay_currency": payload.pay_currency,
         "raw": invoice,
     }
 
 
-# 为了兼容你之前的接口名，保留旧入口
 @router.post("/mock-checkout")
-def legacy_mock_checkout(data: dict, db: Session = Depends(get_db)):
-    return nowpayments_checkout(data=data, db=db)
+def legacy_mock_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)):
+    return nowpayments_checkout(payload=payload, db=db)
