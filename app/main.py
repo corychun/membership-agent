@@ -28,3 +28,7 @@ app.include_router(orders)
 app.include_router(payments)
 app.include_router(webhooks)
 app.include_router(deliveries)
+
+from app.api.inventory import router as inventory_router
+
+app.include_router(inventory_router)
