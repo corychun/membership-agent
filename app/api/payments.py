@@ -28,6 +28,10 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
     if order.payment_status == "finished":
         raise HTTPException(status_code=400, detail="Order already paid")
 
+    # ✅ 🔥 核心修复：补一个价格（先写死 1 美元）
+    if not hasattr(order, "amount_usd"):
+        order.amount_usd = 1
+
     try:
         invoice = create_invoice(order=order, pay_currency=payload.pay_currency)
     except ValueError as e:
@@ -36,7 +40,13 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail=str(e))
 
     order.payment_status = "waiting"
-    external_id = invoice.get("id") or invoice.get("invoice_id") or invoice.get("payment_id")
+
+    external_id = (
+        invoice.get("id")
+        or invoice.get("invoice_id")
+        or invoice.get("payment_id")
+    )
+
     if external_id:
         order.external_payment_id = str(external_id)
 
