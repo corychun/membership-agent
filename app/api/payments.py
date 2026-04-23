@@ -14,6 +14,15 @@ class CheckoutRequest(BaseModel):
     pay_currency: str = "usdttrc20"
 
 
+# 🔥 改这里：统一 20 USD
+PRICE_MAP = {
+    "GPT": 20,
+    "VIP": 20,
+    "CLAUDE": 20,
+    "MJ": 20,
+}
+
+
 def _get_order_by_order_no(db: Session, order_no: str) -> Order:
     order = db.query(Order).filter(Order.order_no == order_no).first()
     if not order:
@@ -28,9 +37,9 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
     if order.payment_status == "finished":
         raise HTTPException(status_code=400, detail="Order already paid")
 
-    # ✅ 🔥 核心修复：补一个价格（先写死 1 美元）
-    if not hasattr(order, "amount_usd"):
-        order.amount_usd = 1
+    # 🔥 强制写入 20 USD（避免最小金额问题）
+    if not hasattr(order, "amount_usd") or not order.amount_usd:
+        order.amount_usd = PRICE_MAP.get(order.product_code, 20)
 
     try:
         invoice = create_invoice(order=order, pay_currency=payload.pay_currency)
