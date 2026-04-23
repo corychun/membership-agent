@@ -13,8 +13,7 @@ app = FastAPI(title="membership-agent", version="1.0.0")
 
 @app.on_event("startup")
 def init():
-    # 开发调试阶段用：清空旧表并按最新 models 重建
-    Base.metadata.drop_all(bind=engine)
+    # 仅创建缺失的表，不再清空现有数据
     Base.metadata.create_all(bind=engine)
 
 
