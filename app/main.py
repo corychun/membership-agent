@@ -1,11 +1,7 @@
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-
 from app.core.db import Base, engine
+
 from app.api.orders import router as orders
 from app.api.payments import router as payments
 from app.api.webhooks import router as webhooks
@@ -30,31 +26,14 @@ app.add_middleware(
 )
 
 
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-INDEX_FILE = STATIC_DIR / "index.html"
-ADMIN_FILE = STATIC_DIR / "admin.html"
-
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-
 @app.get("/")
 def root():
-    if INDEX_FILE.exists():
-        return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
     return {"ok": True}
 
 
 @app.get("/health")
 def health():
     return {"ok": True}
-
-
-@app.get("/admin-page")
-def admin_page():
-    if ADMIN_FILE.exists():
-        return HTMLResponse(ADMIN_FILE.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>admin.html not found</h1>")
 
 
 app.include_router(orders)
