@@ -113,15 +113,7 @@ def confirm_paid_and_deliver(
         )
 
     try:
-        # 人工确认收款：先把订单改成已支付
-        order.payment_status = "paid"
-        order.status = "paid"
-        db.commit()
-        db.refresh(order)
-
-        # 调用你原来的自动发货逻辑
         result = mark_paid_and_deliver(db, order)
-
         db.refresh(order)
 
         return {
