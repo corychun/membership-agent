@@ -13,7 +13,7 @@
       color: #111827;
     }
     .wrap {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     .top {
@@ -129,10 +129,14 @@
       return document.getElementById("adminPassword").value.trim();
     }
 
-    function statusClass(value) {
-      const s = String(value || "").toLowerCase();
+    function normalize(value) {
+      return String(value || "").toLowerCase();
+    }
 
-      if (["finished", "paid", "completed", "fulfilled", "delivered", "sent"].includes(s)) {
+    function statusClass(value) {
+      const s = normalize(value);
+
+      if (["finished", "paid", "completed", "fulfilled", "delivered", "sent", "success"].includes(s)) {
         return "ok";
       }
 
@@ -146,6 +150,30 @@
     function safeText(value) {
       if (value === null || value === undefined || value === "") return "-";
       return String(value);
+    }
+
+    function isDelivered(order) {
+      return ["delivered", "completed", "success", "sent"].includes(normalize(order.delivery_status));
+    }
+
+    function canConfirm(order) {
+      if (isDelivered(order)) return false;
+
+      if (order.can_confirm === true) return true;
+
+      const pay = normalize(order.payment_status);
+
+      return [
+        "waiting",
+        "pending",
+        "pending_payment",
+        "unpaid",
+        "paid",
+        "finished",
+        "confirmed",
+        "",
+        "none"
+      ].includes(pay);
     }
 
     async function parseJsonSafe(res) {
@@ -191,9 +219,19 @@
 
         tbody.innerHTML = items.map(o => {
           const orderNo = safeText(o.order_no);
-          const delivered =
-            String(o.delivery_status || "").toLowerCase() === "delivered" ||
-            String(o.delivery_status || "").toLowerCase() === "completed";
+          const delivered = isDelivered(o);
+          const allowed = canConfirm(o);
+
+          let buttonText = "确认收款并发货";
+          let disabled = "";
+
+          if (delivered) {
+            buttonText = "已发货";
+            disabled = "disabled";
+          } else if (!allowed) {
+            buttonText = "状态不允许";
+            disabled = "disabled";
+          }
 
           return `
             <tr>
@@ -206,8 +244,8 @@
               <td>${safeText(o.delivery_content)}</td>
               <td>${safeText(o.created_at)}</td>
               <td>
-                <button onclick="confirmPaid('${orderNo}')" ${delivered ? "disabled" : ""}>
-                  ${delivered ? "已发货" : "确认收款并发货"}
+                <button onclick="confirmPaid('${orderNo}')" ${disabled}>
+                  ${buttonText}
                 </button>
               </td>
             </tr>
@@ -256,6 +294,7 @@
 
         const result = data.result || {};
         const content =
+          data.delivery_content ||
           data.item_value ||
           result.content ||
           result.delivery_content ||
