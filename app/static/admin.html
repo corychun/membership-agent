@@ -16,22 +16,30 @@
       max-width: 1200px;
       margin: 0 auto;
     }
-    .top {
+    .top, .panel {
       background: #fff;
       padding: 20px;
       border-radius: 14px;
       box-shadow: 0 8px 24px rgba(0,0,0,.06);
       margin-bottom: 18px;
     }
-    input, button {
+    input, button, select, textarea {
       padding: 10px 12px;
       border-radius: 8px;
       font-size: 14px;
       box-sizing: border-box;
     }
-    input {
+    input, select, textarea {
       border: 1px solid #d1d5db;
+    }
+    input {
       width: 260px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      margin-top: 10px;
+      font-family: Arial, sans-serif;
     }
     button {
       border: none;
@@ -51,6 +59,7 @@
       border-radius: 14px;
       overflow: hidden;
       box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      margin-bottom: 18px;
     }
     th, td {
       padding: 12px;
@@ -85,6 +94,21 @@
       align-items: center;
       flex-wrap: wrap;
     }
+    .stock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .stock-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .stock-card strong {
+      font-size: 18px;
+    }
   </style>
 </head>
 
@@ -96,8 +120,28 @@
 
       <div class="toolbar">
         <input id="adminPassword" type="password" placeholder="后台密码 ADMIN_PASSWORD" />
-        <button id="loadBtn" onclick="loadOrders()">刷新订单</button>
+        <button id="loadBtn" onclick="loadAll()">刷新全部</button>
       </div>
+    </div>
+
+    <div class="panel">
+      <h3>库存余量</h3>
+      <div id="stockSummary" class="stock-grid">加载中...</div>
+    </div>
+
+    <div class="panel">
+      <h3>添加库存</h3>
+      <div class="toolbar">
+        <select id="addProduct">
+          <option value="GPT">GPT</option>
+          <option value="CLAUDE">CLAUDE</option>
+          <option value="VIP">VIP</option>
+          <option value="MJ">MJ</option>
+        </select>
+        <button onclick="addStock()">添加库存</button>
+      </div>
+      <textarea id="codesText" placeholder="一行一个卡密，例如：&#10;gpt-012&#10;gpt-013&#10;gpt-014"></textarea>
+      <p class="small">添加后会进入 available 库存，用户下单后后台确认收款会自动扣减一条。</p>
     </div>
 
     <table>
@@ -116,7 +160,7 @@
       </thead>
       <tbody id="ordersBody">
         <tr>
-          <td colspan="9">请输入后台密码，然后点击“刷新订单”。</td>
+          <td colspan="9">请输入后台密码，然后点击“刷新全部”。</td>
         </tr>
       </tbody>
     </table>
@@ -191,6 +235,76 @@
       if (data.error) return data.error;
       if (data.raw) return data.raw;
       return JSON.stringify(data);
+    }
+
+    async function loadAll() {
+      await loadStock();
+      await loadOrders();
+    }
+
+    async function loadStock() {
+      const box = document.getElementById("stockSummary");
+      box.innerHTML = "加载中...";
+
+      try {
+        const res = await fetch(`${API_BASE}/inventory/stats`);
+        const data = await parseJsonSafe(res);
+
+        if (!res.ok) throw new Error(getErrorMessage(data));
+
+        const items = data.items || [];
+
+        box.innerHTML = items.map(i => `
+          <div class="stock-card">
+            <strong>${safeText(i.product_code)}</strong>
+            <div>可用：<span class="${Number(i.available) > 0 ? "ok" : "danger"}">${safeText(i.available)}</span></div>
+            <div>总数：${safeText(i.total)}</div>
+            <div>已用：${safeText(i.used)}</div>
+          </div>
+        `).join("");
+
+      } catch (err) {
+        box.innerHTML = `<span class="danger">库存加载失败：${err.message}</span>`;
+      }
+    }
+
+    async function addStock() {
+      const pwd = getPwd();
+      const product = document.getElementById("addProduct").value;
+      const codes = document.getElementById("codesText").value.trim();
+
+      if (!pwd) {
+        alert("请输入后台密码");
+        return;
+      }
+
+      if (!codes) {
+        alert("请输入卡密，一行一个");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/inventory/add`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            admin_password: pwd,
+            product_code: product,
+            codes: codes
+          })
+        });
+
+        const data = await parseJsonSafe(res);
+
+        if (!res.ok) throw new Error(getErrorMessage(data));
+
+        alert(`✅ 添加成功：${data.inserted} 条`);
+        document.getElementById("codesText").value = "";
+        await loadStock();
+
+      } catch (err) {
+        alert(`❌ 添加失败：${err.message}`);
+      }
     }
 
     async function loadOrders() {
@@ -311,12 +425,14 @@
           "已发送邮件";
 
         alert(`✅ 发货成功：${content}`);
-        loadOrders();
+        await loadAll();
 
       } catch (err) {
         alert(`❌ 发货失败：${err.message}`);
       }
     }
+
+    loadStock();
   </script>
 </body>
 </html>
