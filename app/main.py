@@ -1,19 +1,25 @@
 from pathlib import Path
-import os
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, quote, orders, payments, webhooks, deliveries, chat
-from app.init_db import init_db
-from app.seed_products import seed_products
+from app.core.db import Base, engine
+from app.api.orders import router as orders
+from app.api.payments import router as payments
+from app.api.webhooks import router as webhooks
+from app.api.deliveries import router as deliveries
+from app.api.inventory import router as inventory_router
+from app.api.admin import router as admin_router
 
-app = FastAPI(
-    title="membership-agent",
-    version="1.0.0"
-)
+app = FastAPI(title="membership-agent", version="1.0.0")
+
+
+@app.on_event("startup")
+def init():
+    Base.metadata.create_all(bind=engine)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,35 +28,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(quote.router)
-app.include_router(orders.router)
-app.include_router(payments.router)
-app.include_router(webhooks.router)
-app.include_router(deliveries.router)
-app.include_router(chat.router)
-app.include_router(admin.router)
-
-
-@app.post("/admin/init")
-def admin_init(x_admin_token: str = Header(default=None)):
-    expected = os.getenv("ADMIN_INIT_TOKEN")
-
-    if not expected:
-        raise HTTPException(status_code=500, detail="ADMIN_INIT_TOKEN not set")
-
-    if x_admin_token != expected:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    try:
-        init_db()
-        seed_products()
-        return {
-            "success": True,
-            "message": "DB initialized + product seeded"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -61,21 +38,28 @@ ADMIN_FILE = STATIC_DIR / "admin.html"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-@app.get("/health")
-def healthcheck():
-    return {"status": "ok"}
-
-
 @app.get("/")
-def home():
-    return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
+def root():
+    if INDEX_FILE.exists():
+        return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
+    return {"ok": True}
 
 
-@app.get("/frontend")
-def frontend():
-    return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
+@app.get("/health")
+def health():
+    return {"ok": True}
 
 
 @app.get("/admin-page")
 def admin_page():
-    return HTMLResponse(ADMIN_FILE.read_text(encoding="utf-8"))
+    if ADMIN_FILE.exists():
+        return HTMLResponse(ADMIN_FILE.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>admin.html not found</h1>")
+
+
+app.include_router(orders)
+app.include_router(payments)
+app.include_router(webhooks)
+app.include_router(deliveries)
+app.include_router(inventory_router)
+app.include_router(admin_router)
