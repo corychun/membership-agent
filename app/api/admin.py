@@ -1,4 +1,5 @@
 import os
+import traceback
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -22,8 +23,12 @@ def check_admin_password(password: str | None):
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
+def norm(value):
+    return str(value or "").lower()
+
+
 def is_delivered(order: Order) -> bool:
-    return str(order.delivery_status or "").lower() in {
+    return norm(order.delivery_status) in {
         "delivered",
         "completed",
         "success",
@@ -32,23 +37,10 @@ def is_delivered(order: Order) -> bool:
 
 
 def can_manual_confirm(order: Order) -> bool:
-    """
-    人工确认收款允许的状态：
-    - waiting
-    - pending
-    - pending_payment
-    - unpaid
-    - paid
-    - finished
-
-    但如果已经发货，禁止重复发货。
-    """
     if is_delivered(order):
         return False
 
-    payment_status = str(order.payment_status or "").lower()
-
-    return payment_status in {
+    return norm(order.payment_status) in {
         "waiting",
         "pending",
         "pending_payment",
@@ -120,18 +112,36 @@ def confirm_paid_and_deliver(
             detail=f"当前状态不允许发货：payment_status={order.payment_status}, delivery_status={order.delivery_status}",
         )
 
-    # 人工确认收款后，先标记为已支付，再发货
-    order.payment_status = "paid"
-    order.status = "paid"
-    db.commit()
-    db.refresh(order)
+    try:
+        # 人工确认收款：先把订单改成已支付
+        order.payment_status = "paid"
+        order.status = "paid"
+        db.commit()
+        db.refresh(order)
 
-    result = mark_paid_and_deliver(db, order)
+        # 调用你原来的自动发货逻辑
+        result = mark_paid_and_deliver(db, order)
 
-    return {
-        "ok": True,
-        "msg": "paid + delivered",
-        "order_no": order.order_no,
-        "result": result,
-        "delivery_content": getattr(order, "delivery_content", None),
-    }
+        db.refresh(order)
+
+        return {
+            "ok": True,
+            "msg": "paid + delivered",
+            "order_no": order.order_no,
+            "delivery_content": order.delivery_content,
+            "result": result,
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        print("confirm_paid_and_deliver error:")
+        print(traceback.format_exc())
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"发货失败：{str(e)}"
+        )
