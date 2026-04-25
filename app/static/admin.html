@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>订单管理</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
+      margin: 0;
+      padding: 32px 16px;
+      color: #111827;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .top {
+      background: #fff;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      margin-bottom: 18px;
+    }
+    input, button {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input {
+      border: 1px solid #d1d5db;
+      width: 260px;
+    }
+    button {
+      border: none;
+      background: #111827;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f3f4f6;
+    }
+    .small {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .ok {
+      color: #047857;
+      font-weight: bold;
+    }
+    .warn {
+      color: #b45309;
+      font-weight: bold;
+    }
+    .danger {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h2>订单管理</h2>
+      <p class="small">用于微信/支付宝人工确认收款后自动发货。</p>
+      <input id="adminPassword" type="password" placeholder="后台密码 ADMIN_PASSWORD" />
+      <button onclick="loadOrders()">刷新订单</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>订单ID</th>
+          <th>邮箱</th>
+          <th>产品</th>
+          <th>金额</th>
+          <th>支付状态</th>
+          <th>发货状态</th>
+          <th>时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+        <tr><td colspan="8">请先输入后台密码，然后点刷新订单。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const API_BASE = "https://membership-agent.onrender.com";
+
+    function getPwd() {
+      return document.getElementById("adminPassword").value.trim();
+    }
+
+    function statusClass(s) {
+      if (["finished", "paid", "completed", "fulfilled"].includes(String(s).toLowerCase())) return "ok";
+      if (["failed", "cancelled", "canceled"].includes(String(s).toLowerCase())) return "danger";
+      return "warn";
+    }
+
+    async function loadOrders() {
+      const pwd = getPwd();
+      if (!pwd) {
+        alert("请输入后台密码");
+        return;
+      }
+
+      const tbody = document.getElementById("ordersBody");
+      tbody.innerHTML = `<tr><td colspan="8">加载中...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/orders?admin_password=${encodeURIComponent(pwd)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(JSON.stringify(data));
+        }
+
+        const items = data.items || [];
+
+        if (!items.length) {
+          tbody.innerHTML = `<tr><td colspan="8">暂无订单</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = items.map(o => `
+          <tr>
+            <td>
+              <div>${o.order_id}</div>
+              <div class="small">${o.status || "-"}</div>
+            </td>
+            <td>${o.email || "-"}</td>
+            <td>${o.product_code || "-"}</td>
+            <td>${o.amount || "-"} ${o.currency || ""}</td>
+            <td class="${statusClass(o.payment_status)}">${o.payment_status || "-"}</td>
+            <td class="${statusClass(o.delivery_status)}">${o.delivery_status || "-"}</td>
+            <td>${o.created_at || "-"}</td>
+            <td>
+              <button onclick="confirmPaid('${o.order_id}')">确认收款并发货</button>
+            </td>
+          </tr>
+        `).join("");
+
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8">加载失败：${err.message}</td></tr>`;
+      }
+    }
+
+    async function confirmPaid(orderId) {
+      const pwd = getPwd();
+      if (!pwd) {
+        alert("请输入后台密码");
+        return;
+      }
+
+      if (!confirm(`确认该订单已收款，并立即自动发货？\n${orderId}`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/orders/confirm-paid`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            admin_password: pwd,
+            order_id: orderId
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(JSON.stringify(data));
+        }
+
+        alert(`已发货：${data.item_value || data.delivery_note || "成功"}`);
+        loadOrders();
+
+      } catch (err) {
+        alert(`发货失败：${err.message}`);
+      }
+    }
+  </script>
+</body>
+</html>
