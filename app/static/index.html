@@ -77,6 +77,25 @@
       padding: 8px;
     }
 
+    .stock-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    .ok {
+      color: #047857;
+      font-weight: bold;
+    }
+
+    .danger {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+
     .status {
       margin-top: 18px;
       padding: 14px;
@@ -136,10 +155,12 @@
     <label for="product">选择产品</label>
     <select id="product">
       <option value="GPT">GPT</option>
-      <option value="VIP">VIP</option>
       <option value="CLAUDE">Claude</option>
+      <option value="VIP">VIP</option>
       <option value="MJ">Midjourney</option>
     </select>
+
+    <div id="stockBox" class="stock-box">库存加载中...</div>
 
     <label for="email">邮箱</label>
     <input id="email" type="email" placeholder="输入你的邮箱" />
@@ -176,6 +197,7 @@
 
   <script>
     const API_BASE = "https://membership-agent.onrender.com";
+    let stockMap = {};
 
     function setStatus(message, type = "") {
       const box = document.getElementById("status");
@@ -188,6 +210,56 @@
       if (method === "wechat") return "微信支付";
       if (method === "alipay") return "支付宝";
       return "USDT/TRC20";
+    }
+
+    function getSelectedProduct() {
+      return document.getElementById("product").value;
+    }
+
+    function updateStockBox() {
+      const product = getSelectedProduct();
+      const stockBox = document.getElementById("stockBox");
+      const buyBtn = document.getElementById("buyBtn");
+      const item = stockMap[product];
+
+      if (!item) {
+        stockBox.innerHTML = `<span class="danger">库存：0</span>`;
+        buyBtn.disabled = true;
+        return;
+      }
+
+      const available = Number(item.available || 0);
+
+      if (available > 0) {
+        stockBox.innerHTML = `库存剩余：<span class="ok">${available}</span>`;
+        buyBtn.disabled = false;
+      } else {
+        stockBox.innerHTML = `<span class="danger">库存不足，暂时无法购买</span>`;
+        buyBtn.disabled = true;
+      }
+    }
+
+    async function loadStock() {
+      try {
+        const res = await fetch(`${API_BASE}/inventory/stats`);
+        const data = await parseJsonSafe(res);
+
+        if (!res.ok) throw new Error(JSON.stringify(data));
+
+        stockMap = {};
+        const items = data.items || [];
+
+        items.forEach(i => {
+          stockMap[String(i.product_code || "").toUpperCase()] = i;
+        });
+
+        updateStockBox();
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById("stockBox").innerHTML =
+          `<span class="danger">库存加载失败</span>`;
+      }
     }
 
     function updatePayMethod() {
@@ -210,6 +282,8 @@
     }
 
     document.getElementById("payMethod").addEventListener("change", updatePayMethod);
+    document.getElementById("product").addEventListener("change", updateStockBox);
+
     updatePayMethod();
 
     function showResult(orderNo, product, email, method, payUrl = "") {
@@ -248,6 +322,12 @@
       const product = document.getElementById("product").value;
       const method = document.getElementById("payMethod").value;
       const button = document.getElementById("buyBtn");
+
+      const stock = stockMap[product];
+      if (!stock || Number(stock.available || 0) <= 0) {
+        alert("当前产品库存不足，暂时无法购买");
+        return;
+      }
 
       if (button.disabled) return;
 
@@ -337,9 +417,13 @@
         setStatus(`操作失败：\n${err.message}`, "error");
         alert(`失败：${err.message}`);
       } finally {
+        await loadStock();
         button.disabled = false;
+        updateStockBox();
       }
     }
+
+    loadStock();
   </script>
 </body>
 </html>
