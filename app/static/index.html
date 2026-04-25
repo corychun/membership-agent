@@ -1,832 +1,348 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Membership Agent Demo</title>
+  <title>AI Membership Shop</title>
   <style>
-    :root {
-      --bg: #0b1020;
-      --panel: #121936;
-      --panel-2: #182247;
-      --text: #e8ecff;
-      --muted: #aab4df;
-      --primary: #6ea8fe;
-      --ok: #39d98a;
-      --warn: #ffcc66;
-      --danger: #ff7b7b;
-      --border: #2a376e;
-    }
-
-    * { box-sizing: border-box; }
-
     body {
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
       margin: 0;
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: linear-gradient(180deg, #0b1020 0%, #0f1630 100%);
-      color: var(--text);
+      padding: 40px 16px;
+      color: #111827;
     }
 
-    .wrap {
-      width: min(1180px, calc(100% - 32px));
-      margin: 32px auto 64px;
-    }
-
-    .hero {
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 32px;
-    }
-
-    .sub {
-      color: var(--muted);
-      line-height: 1.7;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .card {
-      background: rgba(18, 25, 54, 0.92);
-      border: 1px solid var(--border);
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #ffffff;
       border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
     }
 
-    .card h2 {
-      margin: 0 0 14px;
-      font-size: 20px;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 12px;
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 28px;
     }
 
     label {
-      font-size: 14px;
-      color: var(--muted);
+      display: block;
+      margin: 14px 0 8px;
+      font-weight: 600;
     }
 
-    input, select, textarea {
+    select,
+    input,
+    button {
       width: 100%;
+      box-sizing: border-box;
       padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--panel-2);
-      color: var(--text);
-      outline: none;
+      font-size: 16px;
+      border-radius: 10px;
     }
 
-    textarea {
-      min-height: 100px;
-      resize: vertical;
+    select,
+    input {
+      border: 1px solid #d1d5db;
+      background: #fff;
     }
 
     button {
-      border: 0;
-      background: var(--primary);
-      color: #08101f;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-weight: 700;
+      margin-top: 18px;
+      border: none;
+      background: #111827;
+      color: white;
       cursor: pointer;
-      transition: transform 0.08s ease, opacity 0.2s ease;
+      font-weight: 700;
     }
 
-    button:hover { opacity: 0.95; }
-    button:active { transform: translateY(1px); }
-
-    button.secondary {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
     }
 
     .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--warn);
-    }
-
-    .dot.ok { background: var(--ok); }
-    .dot.err { background: var(--danger); }
-
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 13px;
-      line-height: 1.55;
-      color: #d7ddff;
-      background: #0b1020;
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      margin-top: 18px;
       padding: 14px;
-      min-height: 120px;
+      border-radius: 10px;
+      background: #f3f4f6;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      min-height: 56px;
     }
 
-    .full { grid-column: 1 / -1; }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      margin-bottom: 18px;
+    .success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
     }
 
-    .step {
-      padding: 12px;
+    .error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .qr-box {
+      display: none;
+      margin-top: 18px;
+      padding: 16px;
       border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      font-size: 13px;
-      color: var(--muted);
+      border: 1px solid #e5e7eb;
+      background: #fafafa;
       text-align: center;
     }
 
-    .step.active {
-      border-color: var(--primary);
-      color: var(--text);
-      box-shadow: inset 0 0 0 1px rgba(110,168,254,.2);
+    .qr-box img {
+      width: 220px;
+      max-width: 100%;
+      border-radius: 10px;
+      background: #fff;
+      padding: 8px;
     }
 
-    .tip {
-      color: var(--muted);
+    .result-box {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fafafa;
+      display: none;
+      line-height: 1.7;
+    }
+
+    .result-box strong {
+      display: inline-block;
+      min-width: 90px;
+    }
+
+    .small {
+      color: #6b7280;
       font-size: 13px;
       margin-top: 10px;
       line-height: 1.6;
     }
 
-    .kv-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .kv-item {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .kv-item strong {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .mono {
-      font-family: Consolas, "Courier New", monospace;
+    a.pay-link {
       word-break: break-all;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #0b1020;
-    }
-
-    table {
-      width: 100%;
-      min-width: 860px;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid rgba(42, 55, 110, 0.9);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      color: var(--muted);
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    tbody tr:hover {
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .empty-row td {
-      color: var(--muted);
-      text-align: center;
-      padding: 24px 12px;
-    }
-
-    code {
-      color: #d7ddff;
-    }
-
-    a {
-      color: var(--primary);
-    }
-
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-      .row { grid-template-columns: 1fr; }
-      .steps { grid-template-columns: 1fr 1fr; }
-      .kv-grid { grid-template-columns: 1fr; }
+      color: #2563eb;
+      text-decoration: none;
     }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="hero">
-      <h1>Membership Agent Demo</h1>
-      <div class="sub">
-        这是一个最小内测页面，用来串联报价、下单、USDT(TRC20) 收款、后台确认到账、交付完成、聊天问答和后台订单列表。<br />
-        默认连接 <code>默认连接当前网站域名</code>。
-      </div>
+  <div class="container">
+    <h2>购买会员</h2>
+
+    <label for="product">选择产品</label>
+    <select id="product">
+      <option value="GPT">GPT</option>
+      <option value="VIP">VIP</option>
+      <option value="CLAUDE">Claude</option>
+      <option value="MJ">Midjourney</option>
+    </select>
+
+    <label for="email">邮箱</label>
+    <input id="email" type="email" placeholder="输入你的邮箱" />
+
+    <label for="payMethod">支付方式</label>
+    <select id="payMethod">
+      <option value="wechat">微信支付</option>
+      <option value="alipay">支付宝</option>
+      <option value="usdt">USDT / TRC20</option>
+    </select>
+
+    <div id="qrBox" class="qr-box">
+      <div><strong id="qrTitle">微信支付</strong></div>
+      <p class="small">扫码付款后，请保留订单号，等待后台确认后自动发货。</p>
+      <img id="qrImg" src="/static/qrcodes/wechat.png" alt="收款二维码" />
     </div>
 
-    <div class="card full" style="margin-bottom: 16px;">
-      <div class="row">
-        <div class="field">
-          <label for="apiBase">后端地址</label>
-          <input id="apiBase" value="https://aimembership.app" />
-        </div>
-        <div class="field">
-          <label>快捷入口</label>
-          <div class="actions">
-            <button class="secondary" onclick="openDocs()">打开 Swagger</button>
-            <button class="secondary" onclick="checkHealth()">检查 /health</button>
-          </div>
-        </div>
-      </div>
-      <div class="status" id="healthStatus"><span class="dot"></span><span>等待检测后端状态</span></div>
+    <button id="buyBtn" onclick="buy()">立即购买</button>
+
+    <div id="status" class="status">等待操作…</div>
+
+    <div id="resultBox" class="result-box">
+      <div><strong>订单号：</strong><span id="orderNoText">-</span></div>
+      <div><strong>产品：</strong><span id="productText">-</span></div>
+      <div><strong>邮箱：</strong><span id="emailText">-</span></div>
+      <div><strong>支付方式：</strong><span id="methodText">-</span></div>
+      <div><strong>支付链接：</strong><span id="payLinkText">-</span></div>
     </div>
 
-    <div class="steps">
-      <div class="step active">1. 获取报价</div>
-      <div class="step" id="step2">2. 创建订单</div>
-      <div class="step" id="step3">3. 创建 USDT 支付</div>
-      <div class="step" id="step4">4. 后台确认到账</div>
-      <div class="step" id="step5">5. 完成交付</div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h2>业务信息</h2>
-        <div class="row">
-          <div class="field">
-            <label for="email">客户邮箱</label>
-            <input id="email" value="user@example.com" />
-          </div>
-          <div class="field">
-            <label for="targetEmail">开通邮箱</label>
-            <input id="targetEmail" value="user@example.com" />
-          </div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label for="userType">客户类型</label>
-            <select id="userType">
-              <option value="individual">individual</option>
-              <option value="team" selected>team</option>
-              <option value="enterprise">enterprise</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="productCode">产品</label>
-            <select id="productCode">
-              <option value="chatgpt-business-monthly" selected>chatgpt-business-monthly</option>
-              <option value="ai-tools-procurement-service">ai-tools-procurement-service</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label for="seats">人数 / 席位</label>
-          <input id="seats" type="number" min="1" value="3" />
-        </div>
-        <div class="actions">
-          <button onclick="getQuote()">获取报价</button>
-          <button class="secondary" onclick="createOrder()">直接创建订单</button>
-        </div>
-        <div class="tip">建议先获取报价，确认金额正常后再创建订单。</div>
-      </div>
-
-      <div class="card">
-        <h2>订单操作</h2>
-        <div class="field">
-          <label for="orderId">当前订单 ID</label>
-          <input id="orderId" placeholder="创建订单后自动写入，也可以手动粘贴" />
-        </div>
-        <div class="actions">
-          <button onclick="createUsdtPayment()">创建 USDT 支付</button>
-          <button class="secondary" onclick="refreshUsdtStatus()">刷新支付状态</button>
-          <button class="secondary" onclick="completeDelivery()">标记交付完成</button>
-        </div>
-        <div class="tip">创建 USDT 支付后，页面会展示固定收款地址、网络和金额。</div>
-      </div>
-
-      <div class="card full">
-        <h2>USDT 收款信息</h2>
-        <div class="kv-grid">
-          <div class="kv-item">
-            <strong>收款地址</strong>
-            <div class="mono" id="walletAddress">暂未生成</div>
-          </div>
-          <div class="kv-item">
-            <strong>网络</strong>
-            <div id="networkText">TRC20</div>
-          </div>
-          <div class="kv-item">
-            <strong>应付金额</strong>
-            <div id="amountUsdt">0</div>
-          </div>
-          <div class="kv-item">
-            <strong>支付状态</strong>
-            <div id="usdtStatus">未创建</div>
-          </div>
-        </div>
-        <div class="actions" style="margin-top: 12px;">
-          <button class="secondary" onclick="copyWalletAddress()">复制地址</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>后台确认到账</h2>
-        <div class="field">
-          <label for="adminPassword">管理员密码</label>
-          <input id="adminPassword" type="password" placeholder="请输入 ADMIN_PASSWORD" value="123456" />
-        </div>
-        <div class="field">
-          <label for="txHash">交易哈希 tx_hash</label>
-          <input id="txHash" placeholder="请输入链上交易哈希" />
-        </div>
-        <div class="actions">
-          <button onclick="confirmUsdtPayment()">确认到账</button>
-        </div>
-        <div class="status" id="confirmStatus"><span class="dot"></span><span>等待后台确认到账</span></div>
-      </div>
-
-      <div class="card">
-        <h2>AI 聊天</h2>
-        <div class="field">
-          <label for="chatMessage">问题</label>
-          <textarea id="chatMessage">我有 5 个人，需要团队方案，帮我报价。</textarea>
-        </div>
-        <div class="actions">
-          <button onclick="sendChat()">发送聊天</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>当前状态</h2>
-        <div class="field">
-          <label>订单流程状态</label>
-          <pre id="stateBox">还没有订单。先获取报价或创建订单。</pre>
-        </div>
-      </div>
-
-      <div class="card full">
-        <h2>后台订单</h2>
-        <div class="actions" style="margin-bottom: 12px;">
-          <button onclick="loadAdminOrders()">加载订单</button>
-        </div>
-        <div class="status" id="adminStatus"><span class="dot"></span><span>等待加载后台订单</span></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>order_id</th>
-                <th>email</th>
-                <th>product_code</th>
-                <th>amount</th>
-                <th>status</th>
-                <th>payment_status</th>
-                <th>delivery_status</th>
-                <th>created_at</th>
-              </tr>
-            </thead>
-            <tbody id="adminOrdersBody">
-              <tr class="empty-row">
-                <td colspan="8">还没有加载订单。</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card full">
-        <h2>库存后台</h2>
-        <div class="row">
-          <div class="field">
-            <label for="inventoryAdminPassword">管理员密码</label>
-            <input id="inventoryAdminPassword" type="password" placeholder="输入管理员密码" />
-          </div>
-          <div class="field">
-            <label for="inventoryProductCode">product_code</label>
-            <input id="inventoryProductCode" value="chatgpt-business-monthly" />
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="inventoryItemType">item_type</label>
-            <input id="inventoryItemType" value="redeem_code" />
-          </div>
-          <div class="field">
-            <label for="inventoryItemValue">item_value</label>
-            <input id="inventoryItemValue" placeholder="例如 VIP-TEST-001" />
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="inventoryItemSecret">item_secret（可选）</label>
-          <input id="inventoryItemSecret" placeholder="可留空" />
-        </div>
-
-        <div class="actions">
-          <button onclick="addInventory()">添加库存</button>
-          <button class="secondary" onclick="loadInventory()">查看库存</button>
-        </div>
-
-        <div class="tip">先添加一条库存，再对已支付订单执行自动发货。</div>
-      </div>
-
-      <div class="card full">
-        <h2>自动发货</h2>
-        <div class="row">
-          <div class="field">
-            <label for="fulfillOrderId">订单 ID</label>
-            <input id="fulfillOrderId" placeholder="输入已支付订单的 order_id" />
-          </div>
-          <div class="field">
-            <label for="fulfillAdminPassword">管理员密码</label>
-            <input id="fulfillAdminPassword" type="password" placeholder="输入管理员密码" />
-          </div>
-        </div>
-
-        <div class="actions">
-          <button onclick="runFulfillment()">执行自动发货</button>
-        </div>
-
-        <div class="tip">订单必须已经 paid，否则不会发货。</div>
-      </div>
-
-      <div class="card full">
-        <h2>库存列表</h2>
-        <pre id="inventoryBox">还没有加载库存。</pre>
-      </div>
-
-      <div class="card full">
-        <h2>接口返回结果</h2>
-        <pre id="resultBox">等待调用接口...</pre>
-      </div>
+    <div class="small">
+      微信/支付宝付款后，商家后台确认收款即可自动发货到邮箱。USDT 会跳转 NOWPayments。
     </div>
   </div>
 
   <script>
-const state = {
-  quote: null,
-  order: null,
-  usdtPayment: null,
-  delivery: null,
-  chat: null,
-  adminOrders: [],
-  usdtConfirm: null,
-};
+    const API_BASE = "https://membership-agent.onrender.com";
 
-function apiBase() {
-  const input = document.getElementById('apiBase');
-  const value = input ? input.value.trim() : '';
-  return (value || window.location.origin).replace(/\/$/, '');
-}
-
-function syncApiBaseToCurrentOrigin() {
-  const input = document.getElementById('apiBase');
-  if (!input) return;
-
-  const current = window.location.origin;
-  const val = input.value.trim();
-
-  if (!val || val.includes('127.0.0.1') || val.includes('localhost')) {
-    input.value = current;
-  }
-}
-
-function jsonHeaders() {
-  return { 'Content-Type': 'application/json' };
-}
-
-function adminHeaders() {
-  const password = document.getElementById('adminPassword')?.value.trim();
-  return password ? { 'X-Admin-Password': password } : {};
-}
-
-function getFormData() {
-  return {
-    email: document.getElementById('email').value.trim(),
-    target_email: document.getElementById('targetEmail').value.trim(),
-    user_type: document.getElementById('userType').value,
-    product_code: document.getElementById('productCode').value,
-    seats: Number(document.getElementById('seats').value || 1),
-  };
-}
-
-function setResult(title, data) {
-  document.getElementById('resultBox').textContent =
-    `${title}\n\n${JSON.stringify(data, null, 2)}`;
-}
-
-function setState() {
-  document.getElementById('stateBox').textContent =
-    JSON.stringify(state, null, 2);
-}
-
-function markStep(step) {
-  for (let i = 2; i <= 5; i++) {
-    const el = document.getElementById(`step${i}`);
-    if (el) el.classList.remove('active');
-  }
-  if (step >= 2) document.getElementById('step2')?.classList.add('active');
-  if (step >= 3) document.getElementById('step3')?.classList.add('active');
-  if (step >= 4) document.getElementById('step4')?.classList.add('active');
-  if (step >= 5) document.getElementById('step5')?.classList.add('active');
-}
-
-function setStatus(id, ok, text) {
-  const box = document.getElementById(id);
-  if (!box) return;
-  const dot = box.querySelector('.dot');
-  const span = box.querySelector('span:last-child');
-  if (dot) dot.className = `dot ${ok ? 'ok' : 'err'}`;
-  if (span) span.textContent = text;
-}
-
-function updateUsdtCard(payment) {
-  document.getElementById('walletAddress').textContent =
-    payment?.wallet_address || '暂未生成';
-  document.getElementById('networkText').textContent =
-    payment?.network || 'TRC20';
-  document.getElementById('amountUsdt').textContent =
-    payment?.amount_usdt ?? 0;
-  document.getElementById('paymentStatus').textContent =
-    payment?.status || '未创建';
-}
-
-async function safeJson(res) {
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { raw: text };
-  }
-}
-
-async function request(path, options = {}) {
-  const url = `${apiBase()}${path}`;
-  const res = await fetch(url, options);
-  const data = await safeJson(res);
-
-  if (!res.ok) {
-    const detail = data?.detail
-      ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
-      : JSON.stringify(data);
-    throw new Error(detail || `HTTP ${res.status}`);
-  }
-
-  return data;
-}
-
-async function checkHealth() {
-  try {
-    setStatus('healthStatus', true, '检测中...');
-    const data = await request('/health', { method: 'GET' });
-    setStatus('healthStatus', true, `后端正常：${JSON.stringify(data)}`);
-    setResult('Health Check', data);
-  } catch (err) {
-    setStatus('healthStatus', false, `后端异常：${err.message}`);
-    setResult('Health Check Error', { error: err.message });
-  }
-}
-
-function openDocs() {
-  window.open(`${apiBase()}/docs`, '_blank');
-}
-
-async function getQuote() {
-  try {
-    const payload = getFormData();
-    const data = await request('/quote', {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify(payload),
-    });
-    state.quote = data;
-    setResult('报价结果', data);
-    setState();
-  } catch (err) {
-    setResult('报价失败', { error: err.message });
-  }
-}
-
-async function createOrder() {
-  try {
-    const payload = getFormData();
-    const data = await request('/orders', {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify(payload),
-    });
-
-    state.order = data;
-    document.getElementById('orderId').value = data.id || '';
-    setResult('创建订单成功', data);
-    setState();
-    markStep(2);
-  } catch (err) {
-    setResult('创建订单失败', { error: err.message });
-  }
-}
-
-async function createUsdtPayment() {
-  try {
-    const orderId = document.getElementById('orderId').value.trim();
-    if (!orderId) {
-      throw new Error('请先创建订单或填写订单 ID');
+    function setStatus(message, type = "") {
+      const box = document.getElementById("status");
+      box.className = "status";
+      if (type) box.classList.add(type);
+      box.textContent = message;
     }
 
-    const data = await request('/payments/usdt/create', {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify({ order_id: orderId }),
-    });
+    function methodName(method) {
+      if (method === "wechat") return "微信支付";
+      if (method === "alipay") return "支付宝";
+      return "USDT/TRC20";
+    }
 
-    state.usdtPayment = data;
-    updateUsdtCard(data);
-    setResult('创建 USDT 支付', data);
-    setState();
-    markStep(3);
-  } catch (err) {
-    setResult('创建 USDT 支付失败', { error: err.message });
-  }
-}
+    function updatePayMethod() {
+      const method = document.getElementById("payMethod").value;
+      const qrBox = document.getElementById("qrBox");
+      const qrImg = document.getElementById("qrImg");
+      const qrTitle = document.getElementById("qrTitle");
 
-async function refreshPaymentStatus() {
-  try {
-    const orderId = document.getElementById('orderId').value.trim();
-    if (!orderId) throw new Error('请填写订单 ID');
+      if (method === "wechat") {
+        qrBox.style.display = "block";
+        qrTitle.textContent = "微信支付";
+        qrImg.src = "/static/qrcodes/wechat.png";
+      } else if (method === "alipay") {
+        qrBox.style.display = "block";
+        qrTitle.textContent = "支付宝";
+        qrImg.src = "/static/qrcodes/alipay.png";
+      } else {
+        qrBox.style.display = "none";
+      }
+    }
 
-    const data = await request(`/payments/${orderId}`, {
-      method: 'GET',
-    });
+    document.getElementById("payMethod").addEventListener("change", updatePayMethod);
+    updatePayMethod();
 
-    state.usdtPayment = data;
-    updateUsdtCard(data);
-    setResult('支付状态', data);
-    setState();
-  } catch (err) {
-    setResult('查询支付状态失败', { error: err.message });
-  }
-}
+    function showResult(orderNo, product, email, method, payUrl = "") {
+      document.getElementById("orderNoText").textContent = orderNo || "-";
+      document.getElementById("productText").textContent = product || "-";
+      document.getElementById("emailText").textContent = email || "-";
+      document.getElementById("methodText").textContent = methodName(method);
 
-async function completePayment() {
-  try {
-    const orderId = document.getElementById('orderId').value.trim();
-    if (!orderId) throw new Error('请填写订单 ID');
+      const linkBox = document.getElementById("payLinkText");
+      if (payUrl) {
+        linkBox.innerHTML = `<a class="pay-link" href="${payUrl}" target="_blank">${payUrl}</a>`;
+      } else {
+        linkBox.textContent = "-";
+      }
 
-    const txHash = document.getElementById('txHash').value.trim();
+      document.getElementById("resultBox").style.display = "block";
+    }
 
-    const data = await request(`/deliveries/${orderId}/complete`, {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify({
-        note: txHash ? `tx_hash:${txHash}` : 'manual completed',
-      }),
-    });
+    function hideResult() {
+      document.getElementById("resultBox").style.display = "none";
+    }
 
-    state.delivery = data;
-    setResult('完成交付', data);
-    setState();
-    markStep(5);
-  } catch (err) {
-    setResult('完成交付失败', { error: err.message });
-  }
-}
+    async function parseJsonSafe(res) {
+      const text = await res.text();
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return { raw: text };
+      }
+    }
 
-async function confirmUsdt() {
-  try {
-    const orderId = document.getElementById('orderId').value.trim();
-    if (!orderId) throw new Error('请填写订单 ID');
+    async function buy() {
+      const email = document.getElementById("email").value.trim();
+      const product = document.getElementById("product").value;
+      const method = document.getElementById("payMethod").value;
+      const button = document.getElementById("buyBtn");
 
-    const txHash = document.getElementById('txHash').value.trim();
-    if (!txHash) throw new Error('请填写交易哈希 tx_hash');
+      if (button.disabled) return;
 
-    const data = await request('/webhooks/mock-payment', {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify({
-        order_id: orderId,
-        status: 'paid',
-        tx_hash: txHash,
-      }),
-    });
+      hideResult();
 
-    state.usdtConfirm = data;
-    setResult('后台确认到账', data);
-    setState();
-    markStep(4);
-  } catch (err) {
-    setResult('后台确认到账失败', { error: err.message });
-  }
-}
+      if (!email || !email.includes("@")) {
+        alert("请输入正确邮箱");
+        return;
+      }
 
-async function loadAdminOrders() {
-  try {
-    const headers = adminHeaders();
-    const data = await request('/admin/orders', {
-      method: 'GET',
-      headers,
-    });
+      button.disabled = true;
 
-    state.adminOrders = data;
-    setResult('后台订单列表', data);
-    setState();
-  } catch (err) {
-    setResult('加载后台订单失败', { error: err.message });
-  }
-}
+      try {
+        setStatus("正在创建订单…");
 
-async function askChat() {
-  try {
-    const question = document.getElementById('chatQuestion').value.trim();
-    if (!question) throw new Error('请输入问题');
+        const orderRes = await fetch(`${API_BASE}/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_code: product,
+            customer_email: email
+          })
+        });
 
-    const data = await request('/chat', {
-      method: 'POST',
-      headers: jsonHeaders(),
-      body: JSON.stringify({ message: question }),
-    });
+        const orderData = await parseJsonSafe(orderRes);
 
-    state.chat = data;
-    document.getElementById('chatAnswer').textContent =
-      data.reply || JSON.stringify(data, null, 2);
-    setResult('AI 聊天结果', data);
-    setState();
-  } catch (err) {
-    setResult('AI 聊天失败', { error: err.message });
-  }
-}
+        if (!orderRes.ok) {
+          throw new Error(`创建订单失败：${JSON.stringify(orderData)}`);
+        }
 
-function copyWallet() {
-  const text = document.getElementById('walletAddress').textContent.trim();
-  if (!text || text === '暂未生成') return;
-  navigator.clipboard.writeText(text);
-}
+        const orderNo = orderData.order_no;
 
-document.addEventListener('DOMContentLoaded', () => {
-  syncApiBaseToCurrentOrigin();
-  setState();
-  updateUsdtCard(null);
-  setStatus('healthStatus', true, '等待检测后端状态');
-});
-</script>
+        if (!orderNo) {
+          throw new Error("创建订单成功，但没有返回订单号");
+        }
+
+        showResult(orderNo, product, email, method);
+
+        if (method === "wechat" || method === "alipay") {
+          setStatus(
+            `订单创建成功：${orderNo}\n请使用${methodName(method)}扫码付款。\n付款后等待后台确认发货。`,
+            "success"
+          );
+          return;
+        }
+
+        setStatus(`订单创建成功：${orderNo}\n正在创建 USDT 支付订单…`);
+
+        const payRes = await fetch(`${API_BASE}/payments/checkout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_no: orderNo,
+            pay_currency: "usdttrc20"
+          })
+        });
+
+        const payData = await parseJsonSafe(payRes);
+
+        if (!payRes.ok) {
+          throw new Error(`创建支付失败：${JSON.stringify(payData)}`);
+        }
+
+        const payUrl =
+          payData.invoice_url ||
+          payData.payment_url ||
+          payData.pay_url ||
+          payData.raw?.invoice_url ||
+          payData.raw?.payment_url ||
+          payData.raw?.pay_url ||
+          "";
+
+        showResult(orderNo, product, email, method, payUrl);
+
+        if (!payUrl) {
+          throw new Error("支付单已创建，但没有返回支付链接");
+        }
+
+        setStatus(`订单创建成功：${orderNo}\n即将跳转 USDT 支付页面…`, "success");
+
+        setTimeout(() => {
+          window.location.href = payUrl;
+        }, 1000);
+
+      } catch (err) {
+        console.error(err);
+        setStatus(`操作失败：\n${err.message}`, "error");
+        alert(`失败：${err.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>
