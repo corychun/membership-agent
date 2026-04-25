@@ -40,6 +40,10 @@
       cursor: pointer;
       font-weight: 700;
     }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -61,6 +65,7 @@
     .small {
       color: #6b7280;
       font-size: 12px;
+      margin-top: 6px;
     }
     .ok {
       color: #047857;
@@ -74,32 +79,45 @@
       color: #b91c1c;
       font-weight: bold;
     }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="top">
       <h2>订单管理</h2>
-      <p class="small">用于微信/支付宝人工确认收款后自动发货。</p>
-      <input id="adminPassword" type="password" placeholder="后台密码 ADMIN_PASSWORD" />
-      <button onclick="loadOrders()">刷新订单</button>
+      <p class="small">用于微信 / 支付宝人工确认收款后自动发货</p>
+
+      <div class="toolbar">
+        <input id="adminPassword" type="password" placeholder="后台密码 ADMIN_PASSWORD" />
+        <button id="loadBtn" onclick="loadOrders()">刷新订单</button>
+      </div>
     </div>
 
     <table>
       <thead>
         <tr>
-          <th>订单ID</th>
+          <th>订单号</th>
           <th>邮箱</th>
           <th>产品</th>
-          <th>金额</th>
+          <th>订单状态</th>
           <th>支付状态</th>
           <th>发货状态</th>
+          <th>发货内容</th>
           <th>时间</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody id="ordersBody">
-        <tr><td colspan="8">请先输入后台密码，然后点刷新订单。</td></tr>
+        <tr>
+          <td colspan="9">请输入后台密码，然后点击“刷新订单”。</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -111,25 +129,54 @@
       return document.getElementById("adminPassword").value.trim();
     }
 
-    function statusClass(s) {
-      if (["finished", "paid", "completed", "fulfilled"].includes(String(s).toLowerCase())) return "ok";
-      if (["failed", "cancelled", "canceled"].includes(String(s).toLowerCase())) return "danger";
+    function statusClass(value) {
+      const s = String(value || "").toLowerCase();
+
+      if (["finished", "paid", "completed", "fulfilled", "delivered", "sent"].includes(s)) {
+        return "ok";
+      }
+
+      if (["failed", "cancelled", "canceled", "error"].includes(s)) {
+        return "danger";
+      }
+
       return "warn";
+    }
+
+    function safeText(value) {
+      if (value === null || value === undefined || value === "") return "-";
+      return String(value);
+    }
+
+    async function parseJsonSafe(res) {
+      const text = await res.text();
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return { raw: text };
+      }
     }
 
     async function loadOrders() {
       const pwd = getPwd();
+
       if (!pwd) {
         alert("请输入后台密码");
         return;
       }
 
+      const loadBtn = document.getElementById("loadBtn");
       const tbody = document.getElementById("ordersBody");
-      tbody.innerHTML = `<tr><td colspan="8">加载中...</td></tr>`;
+
+      loadBtn.disabled = true;
+      tbody.innerHTML = `<tr><td colspan="9">加载中...</td></tr>`;
 
       try {
-        const res = await fetch(`${API_BASE}/admin/orders?admin_password=${encodeURIComponent(pwd)}`);
-        const data = await res.json();
+        const res = await fetch(
+          `${API_BASE}/admin/orders?admin_password=${encodeURIComponent(pwd)}`
+        );
+
+        const data = await parseJsonSafe(res);
 
         if (!res.ok) {
           throw new Error(JSON.stringify(data));
@@ -138,65 +185,88 @@
         const items = data.items || [];
 
         if (!items.length) {
-          tbody.innerHTML = `<tr><td colspan="8">暂无订单</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9">暂无订单</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = items.map(o => `
-          <tr>
-            <td>
-              <div>${o.order_id}</div>
-              <div class="small">${o.status || "-"}</div>
-            </td>
-            <td>${o.email || "-"}</td>
-            <td>${o.product_code || "-"}</td>
-            <td>${o.amount || "-"} ${o.currency || ""}</td>
-            <td class="${statusClass(o.payment_status)}">${o.payment_status || "-"}</td>
-            <td class="${statusClass(o.delivery_status)}">${o.delivery_status || "-"}</td>
-            <td>${o.created_at || "-"}</td>
-            <td>
-              <button onclick="confirmPaid('${o.order_id}')">确认收款并发货</button>
-            </td>
-          </tr>
-        `).join("");
+        tbody.innerHTML = items.map(o => {
+          const orderNo = safeText(o.order_no);
+          const delivered =
+            String(o.delivery_status || "").toLowerCase() === "delivered" ||
+            String(o.delivery_status || "").toLowerCase() === "completed";
+
+          return `
+            <tr>
+              <td>${orderNo}</td>
+              <td>${safeText(o.customer_email)}</td>
+              <td>${safeText(o.product_code)}</td>
+              <td class="${statusClass(o.status)}">${safeText(o.status)}</td>
+              <td class="${statusClass(o.payment_status)}">${safeText(o.payment_status)}</td>
+              <td class="${statusClass(o.delivery_status)}">${safeText(o.delivery_status)}</td>
+              <td>${safeText(o.delivery_content)}</td>
+              <td>${safeText(o.created_at)}</td>
+              <td>
+                <button onclick="confirmPaid('${orderNo}')" ${delivered ? "disabled" : ""}>
+                  ${delivered ? "已发货" : "确认收款并发货"}
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join("");
 
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8">加载失败：${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9">加载失败：${err.message}</td></tr>`;
+      } finally {
+        loadBtn.disabled = false;
       }
     }
 
-    async function confirmPaid(orderId) {
+    async function confirmPaid(orderNo) {
       const pwd = getPwd();
+
       if (!pwd) {
         alert("请输入后台密码");
         return;
       }
 
-      if (!confirm(`确认该订单已收款，并立即自动发货？\n${orderId}`)) {
+      if (!orderNo || orderNo === "-") {
+        alert("订单号无效");
+        return;
+      }
+
+      if (!confirm(`确认已收款，并立即自动发货？\n\n订单号：${orderNo}`)) {
         return;
       }
 
       try {
         const res = await fetch(`${API_BASE}/admin/orders/confirm-paid`, {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             admin_password: pwd,
-            order_id: orderId
+            order_no: orderNo
           })
         });
 
-        const data = await res.json();
+        const data = await parseJsonSafe(res);
 
         if (!res.ok) {
           throw new Error(JSON.stringify(data));
         }
 
-        alert(`已发货：${data.item_value || data.delivery_note || "成功"}`);
+        const result = data.result || {};
+        const content =
+          data.item_value ||
+          result.content ||
+          result.delivery_content ||
+          result.message ||
+          "已发送邮件";
+
+        alert(`✅ 发货成功：${content}`);
         loadOrders();
 
       } catch (err) {
-        alert(`发货失败：${err.message}`);
+        alert(`❌ 发货失败：${err.message}`);
       }
     }
   </script>
