@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Membership Shop</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
+      margin: 0;
+      padding: 40px 16px;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      font-weight: 600;
+    }
+
+    select,
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      font-size: 16px;
+      border-radius: 10px;
+    }
+
+    select,
+    input {
+      border: 1px solid #d1d5db;
+      background: #fff;
+    }
+
+    button {
+      margin-top: 18px;
+      border: none;
+      background: #111827;
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f3f4f6;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      min-height: 56px;
+    }
+
+    .success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .result-box {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fafafa;
+      display: none;
+    }
+
+    .result-box strong {
+      display: inline-block;
+      min-width: 90px;
+    }
+
+    .small {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    a.pay-link {
+      word-break: break-all;
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    a.pay-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>购买会员</h2>
+
+    <label for="product">选择产品</label>
+    <select id="product">
+      <option value="GPT">GPT</option>
+      <option value="VIP">VIP</option>
+      <option value="CLAUDE">Claude</option>
+      <option value="MJ">Midjourney</option>
+    </select>
+
+    <label for="email">邮箱</label>
+    <input id="email" type="email" placeholder="输入你的邮箱" />
+
+    <button id="buyBtn" onclick="buy()">立即购买</button>
+
+    <div id="status" class="status">等待操作…</div>
+
+    <div id="resultBox" class="result-box">
+      <div><strong>订单号：</strong><span id="orderNoText">-</span></div>
+      <div><strong>产品：</strong><span id="productText">-</span></div>
+      <div><strong>支付状态：</strong><span id="paymentStatusText">-</span></div>
+      <div><strong>支付金额：</strong><span id="payAmountText">-</span></div>
+      <div><strong>支付链接：</strong><span id="payLinkText">-</span></div>
+    </div>
+
+    <div class="small">
+      点击购买后会创建订单，并跳转到 NOWPayments 支付页。
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://membership-agent.onrender.com";
+
+    function setStatus(message, type = "") {
+      const box = document.getElementById("status");
+      box.className = "status";
+      if (type) box.classList.add(type);
+      box.textContent = message;
+    }
+
+    function showResult(orderNo, product, paymentStatus, payAmount, payUrl) {
+      document.getElementById("orderNoText").textContent = orderNo || "-";
+      document.getElementById("productText").textContent = product || "-";
+      document.getElementById("paymentStatusText").textContent = paymentStatus || "-";
+      document.getElementById("payAmountText").textContent = payAmount || "-";
+
+      const payLinkText = document.getElementById("payLinkText");
+      if (payUrl) {
+        payLinkText.innerHTML = `<a class="pay-link" href="${payUrl}" target="_blank">${payUrl}</a>`;
+      } else {
+        payLinkText.textContent = "-";
+      }
+
+      document.getElementById("resultBox").style.display = "block";
+    }
+
+    function hideResult() {
+      document.getElementById("resultBox").style.display = "none";
+    }
+
+    async function parseJsonSafe(res) {
+      const text = await res.text();
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return { raw: text };
+      }
+    }
+
+    async function buy() {
+      const email = document.getElementById("email").value.trim();
+      const product = document.getElementById("product").value;
+      const button = document.getElementById("buyBtn");
+
+      hideResult();
+
+      if (!email) {
+        alert("请输入邮箱");
+        return;
+      }
+
+      button.disabled = true;
+
+      try {
+        setStatus("正在创建订单…");
+
+        // 1. 创建订单
+        const orderRes = await fetch(`${API_BASE}/orders`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            product_code: product,
+            customer_email: email
+          })
+        });
+
+        const orderData = await parseJsonSafe(orderRes);
+
+        if (!orderRes.ok) {
+          throw new Error(`创建订单失败：${JSON.stringify(orderData)}`);
+        }
+
+        const orderNo = orderData.order_no;
+        if (!orderNo) {
+          throw new Error("创建订单成功，但没有返回订单号");
+        }
+
+        setStatus(`订单创建成功：${orderNo}\n正在创建支付订单…`);
+
+        // 2. 创建真实支付
+        const payRes = await fetch(`${API_BASE}/payments/checkout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            order_no: orderNo,
+            pay_currency: "usdttrc20"
+          })
+        });
+
+        const payData = await parseJsonSafe(payRes);
+
+        if (!payRes.ok) {
+          throw new Error(`创建支付失败：${JSON.stringify(payData)}`);
+        }
+
+        const payUrl =
+          payData.invoice_url ||
+          payData.payment_url ||
+          payData.pay_url ||
+          payData.raw?.invoice_url ||
+          payData.raw?.payment_url ||
+          payData.raw?.pay_url ||
+          "";
+
+        const payAmount =
+          (payData.raw?.price_amount ?? "-") + " " + (payData.raw?.price_currency ?? "");
+
+        showResult(
+          orderNo,
+          product,
+          payData.payment_status || "waiting",
+          payAmount,
+          payUrl
+        );
+
+        setStatus(
+          `订单创建成功：${orderNo}\n支付单创建成功。\n即将跳转支付页面…`,
+          "success"
+        );
+
+        if (payUrl) {
+          setTimeout(() => {
+            window.location.href = payUrl;
+          }, 1200);
+        } else {
+          alert("已创建支付单，但没有返回支付链接。");
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus(`操作失败：\n${err.message}`, "error");
+        alert(`失败：${err.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
