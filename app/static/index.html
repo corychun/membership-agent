@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Membership Shop</title>
+  <title>购买会员</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,7 +24,6 @@
 
     h2 {
       margin-top: 0;
-      margin-bottom: 20px;
       font-size: 28px;
     }
 
@@ -34,9 +33,7 @@
       font-weight: 600;
     }
 
-    select,
-    input,
-    button {
+    select, input, button {
       width: 100%;
       box-sizing: border-box;
       padding: 12px 14px;
@@ -44,8 +41,7 @@
       border-radius: 10px;
     }
 
-    select,
-    input {
+    select, input {
       border: 1px solid #d1d5db;
       background: #fff;
     }
@@ -62,6 +58,23 @@
     button:disabled {
       background: #9ca3af;
       cursor: not-allowed;
+    }
+
+    .qr-box {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: #fafafa;
+      text-align: center;
+    }
+
+    .qr-box img {
+      width: 220px;
+      max-width: 100%;
+      border-radius: 10px;
+      background: white;
+      padding: 8px;
     }
 
     .status {
@@ -84,24 +97,6 @@
       background: #fef2f2;
       color: #991b1b;
       border: 1px solid #fecaca;
-    }
-
-    .qr-box {
-      display: none;
-      margin-top: 18px;
-      padding: 16px;
-      border-radius: 12px;
-      border: 1px solid #e5e7eb;
-      background: #fafafa;
-      text-align: center;
-    }
-
-    .qr-box img {
-      width: 220px;
-      max-width: 100%;
-      border-radius: 10px;
-      background: #fff;
-      padding: 8px;
     }
 
     .result-box {
@@ -158,7 +153,7 @@
 
     <div id="qrBox" class="qr-box">
       <div><strong id="qrTitle">微信支付</strong></div>
-      <p class="small">扫码付款后，请保留订单号，等待后台确认后自动发货。</p>
+      <p class="small">扫码付款后，请保留订单号，等待商家后台确认后自动发货。</p>
       <img id="qrImg" src="/static/qrcodes/wechat.png" alt="收款二维码" />
     </div>
 
@@ -224,6 +219,7 @@
       document.getElementById("methodText").textContent = methodName(method);
 
       const linkBox = document.getElementById("payLinkText");
+
       if (payUrl) {
         linkBox.innerHTML = `<a class="pay-link" href="${payUrl}" target="_blank">${payUrl}</a>`;
       } else {
@@ -239,6 +235,7 @@
 
     async function parseJsonSafe(res) {
       const text = await res.text();
+
       try {
         return text ? JSON.parse(text) : {};
       } catch {
