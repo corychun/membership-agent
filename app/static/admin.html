@@ -158,7 +158,6 @@
 
     function canConfirm(order) {
       if (isDelivered(order)) return false;
-
       if (order.can_confirm === true) return true;
 
       const pay = normalize(order.payment_status);
@@ -185,6 +184,15 @@
       }
     }
 
+    function getErrorMessage(data) {
+      if (!data) return "未知错误";
+      if (typeof data.detail === "string") return data.detail;
+      if (data.detail) return JSON.stringify(data.detail);
+      if (data.error) return data.error;
+      if (data.raw) return data.raw;
+      return JSON.stringify(data);
+    }
+
     async function loadOrders() {
       const pwd = getPwd();
 
@@ -207,7 +215,7 @@
         const data = await parseJsonSafe(res);
 
         if (!res.ok) {
-          throw new Error(JSON.stringify(data));
+          throw new Error(getErrorMessage(data));
         }
 
         const items = data.items || [];
@@ -289,7 +297,7 @@
         const data = await parseJsonSafe(res);
 
         if (!res.ok) {
-          throw new Error(JSON.stringify(data));
+          throw new Error(getErrorMessage(data));
         }
 
         const result = data.result || {};
@@ -299,6 +307,7 @@
           result.content ||
           result.delivery_content ||
           result.message ||
+          data.msg ||
           "已发送邮件";
 
         alert(`✅ 发货成功：${content}`);
