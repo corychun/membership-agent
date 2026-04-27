@@ -41,7 +41,12 @@ def norm(value):
 
 
 def is_delivered(order: Order) -> bool:
-    return norm(order.delivery_status) in {"delivered", "completed", "success", "sent"}
+    return norm(order.delivery_status) in {
+        "delivered",
+        "completed",
+        "success",
+        "sent",
+    }
 
 
 def can_manual_confirm(order: Order) -> bool:
