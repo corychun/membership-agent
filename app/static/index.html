@@ -1,279 +1,303 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>购买会员</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI会员代充平台</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f6f7fb;
-      margin: 0;
-      padding: 40px 16px;
-      color: #111827;
-    }
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background:#0f172a;
+  color:#fff;
+}
 
-    .container {
-      max-width: 520px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    }
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:20px;
+}
 
-    h2 {
-      margin-top: 0;
-    }
+/* ===== 顶部 ===== */
+.hero{
+  text-align:center;
+  padding:40px 20px;
+}
 
-    label {
-      display: block;
-      margin: 14px 0 6px;
-      font-weight: 600;
-    }
+.hero h1{
+  font-size:42px;
+}
 
-    select, input, button {
-      width: 100%;
-      padding: 12px 14px;
-      font-size: 16px;
-      border-radius: 10px;
-      box-sizing: border-box;
-    }
+.hero p{
+  color:#cbd5e1;
+}
 
-    select, input {
-      border: 1px solid #d1d5db;
-    }
+/* ===== 卡片 ===== */
+.products{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:16px;
+}
 
-    button {
-      margin-top: 16px;
-      border: none;
-      background: #111827;
-      color: #fff;
-      font-weight: 700;
-      cursor: pointer;
-    }
+.card{
+  background:#111827;
+  padding:20px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.1);
+  cursor:pointer;
+}
 
-    button:disabled {
-      background: #9ca3af;
-    }
+.card.active{
+  border:2px solid #6366f1;
+}
 
-    .box {
-      margin-top: 14px;
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 12px;
-      text-align: center;
-    }
+.price{
+  font-size:28px;
+  font-weight:bold;
+  margin-top:10px;
+}
 
-    .ok { color: #047857; }
-    .warn { color: #b45309; }
-    .danger { color: #b91c1c; }
+.stock{
+  font-size:13px;
+  margin-top:6px;
+}
 
-    img {
-      max-width: 220px;
-      margin-top: 10px;
-    }
-  </style>
+/* ===== 按钮 ===== */
+button{
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border:none;
+  border-radius:12px;
+  font-weight:bold;
+  cursor:pointer;
+  background:linear-gradient(90deg,#6366f1,#8b5cf6);
+  color:#fff;
+}
+
+/* ===== 面板 ===== */
+.panel{
+  background:#111827;
+  padding:20px;
+  border-radius:16px;
+  margin-top:20px;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  margin-top:10px;
+}
+
+/* ===== 支付 ===== */
+.pay{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+.pay div{
+  flex:1;
+  padding:10px;
+  background:#1f2937;
+  border-radius:10px;
+  text-align:center;
+  cursor:pointer;
+}
+
+.pay .active{
+  background:#6366f1;
+}
+
+/* ===== QR ===== */
+.qr{
+  text-align:center;
+  margin-top:15px;
+}
+
+.qr img{
+  max-width:200px;
+  background:#fff;
+  padding:8px;
+}
+
+/* ===== 信任 ===== */
+.trust{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px;
+}
+
+.trust div{
+  background:#1f2937;
+  padding:16px;
+  border-radius:12px;
+}
+
+/* ===== FAQ ===== */
+.faq{
+  margin-top:20px;
+}
+
+.faq div{
+  margin-bottom:10px;
+}
+
+/* ===== 状态 ===== */
+.status{
+  margin-top:10px;
+  color:#22c55e;
+}
+</style>
 </head>
 
 <body>
+
 <div class="container">
 
-  <h2>购买会员</h2>
+<!-- 顶部 -->
+<div class="hero">
+  <h1>AI会员一键购买</h1>
+  <p>ChatGPT / Claude / Midjourney 自动发货 · 支持微信/支付宝</p>
+</div>
 
-  <label>选择产品</label>
-  <select id="product">
-    <option value="GPT">GPT</option>
-    <option value="CLAUDE">Claude</option>
-    <option value="VIP">VIP</option>
-    <option value="MJ">MJ</option>
-  </select>
+<!-- 产品 -->
+<div class="products" id="products"></div>
 
-  <div id="priceBox">价格：¥10</div>
-  <div id="stockBox" class="ok">库存加载中...</div>
+<!-- 购买 -->
+<div class="panel">
+  <h3>填写信息</h3>
 
-  <label>邮箱</label>
-  <input id="email" placeholder="输入你的邮箱">
+  <input id="email" placeholder="请输入邮箱">
 
-  <label>支付方式</label>
-  <select id="payMethod">
-    <option value="wechat">微信支付</option>
-    <option value="alipay">支付宝</option>
-    <option value="usdt">USDT / TRC20</option>
-  </select>
+  <div class="pay">
+    <div onclick="setPay('wechat')" id="wechat" class="active">微信</div>
+    <div onclick="setPay('alipay')" id="alipay">支付宝</div>
+    <div onclick="setPay('usdt')" id="usdt">USDT</div>
+  </div>
 
-  <div class="box" id="qrBox"></div>
+  <button onclick="buy()">立即购买</button>
 
-  <button id="buyBtn" onclick="buy()">立即购买</button>
+  <div class="status" id="status"></div>
+</div>
 
-  <div id="statusBox" class="box">等待操作...</div>
+<!-- 二维码 -->
+<div class="panel qr" id="qr"></div>
+
+<!-- 信任 -->
+<div class="panel">
+  <h3>为什么选择我们</h3>
+  <div class="trust">
+    <div>⚡ 自动发货</div>
+    <div>🔒 稳定安全</div>
+    <div>💬 售后支持</div>
+    <div>💰 多支付方式</div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="panel faq">
+  <h3>常见问题</h3>
+  <div>Q：多久发货？ A：1分钟内</div>
+  <div>Q：封号怎么办？ A：补发</div>
+  <div>Q：支持退款吗？ A：联系客服</div>
+</div>
 
 </div>
 
 <script>
-const API_BASE = "https://membership-agent.onrender.com";
+const API="https://membership-agent.onrender.com";
 
-/* ===== 价格 ===== */
-const PRICE_MAP = {
-  GPT: 180,
-  CLAUDE: 200,
-  VIP: 300,
-  MJ: 150
-};
+let product="GPT";
+let pay="wechat";
 
-/* ===== DOM ===== */
-const productSelect = document.getElementById("product");
-const priceBox = document.getElementById("priceBox");
-const stockBox = document.getElementById("stockBox");
-const payMethod = document.getElementById("payMethod");
-const qrBox = document.getElementById("qrBox");
-const statusBox = document.getElementById("statusBox");
-const buyBtn = document.getElementById("buyBtn");
+/* 产品 */
+const products=[
+ {code:"GPT",name:"ChatGPT Plus",price:180},
+ {code:"CLAUDE",name:"Claude Pro",price:200},
+ {code:"MJ",name:"Midjourney",price:150},
+ {code:"VIP",name:"VIP套餐",price:300}
+];
 
-/* ===== 更新价格 ===== */
-function updatePrice(){
-  const p = productSelect.value;
-  priceBox.innerText = "价格：¥" + (PRICE_MAP[p] || 0);
-}
+const container=document.getElementById("products");
 
-/* ===== 加载库存 ===== */
-async function loadStock(){
-  try{
-    const res = await fetch(`${API_BASE}/inventory/stats`);
-    const data = await res.json();
-
-    const p = productSelect.value;
-    const item = data.items.find(i => i.product_code === p);
-
-    const stock = item ? item.available : 0;
-
-    if(stock <= 0){
-      stockBox.innerHTML = `<span class="danger">库存不足，暂时无法购买</span>`;
-      buyBtn.disabled = true;
-    }else{
-      stockBox.innerHTML = `<span class="ok">库存剩余：${stock}</span>`;
-      buyBtn.disabled = false;
-    }
-
-  }catch(e){
-    stockBox.innerHTML = `<span class="danger">库存加载失败</span>`;
-  }
-}
-
-/* ===== 切换二维码 ===== */
-function updateQR(){
-  const method = payMethod.value;
-
-  if(method === "wechat"){
-    qrBox.innerHTML = `
-      <div>微信支付</div>
-      <img src="/static/qrcodes/wechat.png">
-    `;
-  }
-
-  if(method === "alipay"){
-    qrBox.innerHTML = `
-      <div>支付宝</div>
-      <img src="/static/qrcodes/alipay.png">
-    `;
-  }
-
-  if(method === "usdt"){
-    qrBox.innerHTML = `
-      <div>USDT支付（自动生成）</div>
-    `;
-  }
-}
-
-/* ===== 创建订单 ===== */
-async function buy(){
-  const product = productSelect.value;
-  const email = document.getElementById("email").value;
-  const method = payMethod.value;
-
-  if(!email){
-    alert("请输入邮箱");
-    return;
-  }
-
-  statusBox.innerText = "创建订单中...";
-
-  try{
-    const res = await fetch(`${API_BASE}/orders`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        product_code: product,
-        customer_email: email
-      })
-    });
-
-    const data = await res.json();
-
-    if(!res.ok){
-      throw new Error(data.detail || "创建订单失败");
-    }
-
-    const orderNo = data.order_no;
-
-    /* ===== 微信 / 支付宝 ===== */
-    if(method === "wechat" || method === "alipay"){
-      statusBox.innerHTML = `
-        <div class="ok">
-          订单创建成功：${orderNo}<br>
-          请扫码付款，付款后后台自动发货
-        </div>
-      `;
-      return;
-    }
-
-    /* ===== USDT ===== */
-    const payRes = await fetch(`${API_BASE}/payments/checkout`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        order_no: orderNo,
-        pay_currency:"usdttrc20"
-      })
-    });
-
-    const payData = await payRes.json();
-
-    if(!payRes.ok){
-      throw new Error(payData.detail || "支付创建失败");
-    }
-
-    qrBox.innerHTML = `
-      <div>USDT支付</div>
-      <img src="${payData.qr_code_url}">
-      <div>${payData.pay_address}</div>
-    `;
-
-    statusBox.innerHTML = `
-      <div class="ok">
-        请完成 USDT 支付<br>
-        订单号：${orderNo}
-      </div>
-    `;
-
-  }catch(e){
-    statusBox.innerHTML = `<span class="danger">${e.message}</span>`;
-  }
-}
-
-/* ===== 监听 ===== */
-productSelect.addEventListener("change", ()=>{
-  updatePrice();
-  loadStock();
+products.forEach(p=>{
+  const div=document.createElement("div");
+  div.className="card";
+  div.innerHTML=`
+    <h3>${p.name}</h3>
+    <div class="price">¥${p.price}</div>
+    <div class="stock" id="s_${p.code}">加载中...</div>
+  `;
+  div.onclick=()=>select(p.code,div);
+  container.appendChild(div);
 });
 
-payMethod.addEventListener("change", updateQR);
+/* 选中 */
+function select(code,el){
+  product=code;
+  document.querySelectorAll(".card").forEach(c=>c.classList.remove("active"));
+  el.classList.add("active");
+}
 
-/* ===== 初始化 ===== */
-updatePrice();
+/* 支付 */
+function setPay(p){
+  pay=p;
+  document.querySelectorAll(".pay div").forEach(i=>i.classList.remove("active"));
+  document.getElementById(p).classList.add("active");
+}
+
+/* 库存 */
+async function loadStock(){
+  const res=await fetch(API+"/inventory/stats");
+  const data=await res.json();
+  data.items.forEach(i=>{
+    const el=document.getElementById("s_"+i.product_code);
+    if(el) el.innerText="库存："+i.available;
+  });
+}
 loadStock();
-updateQR();
+
+/* 购买 */
+async function buy(){
+  const email=document.getElementById("email").value;
+  if(!email) return alert("填邮箱");
+
+  document.getElementById("status").innerText="创建订单...";
+
+  const res=await fetch(API+"/orders",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({product_code:product,customer_email:email})
+  });
+
+  const data=await res.json();
+
+  document.getElementById("status").innerText="订单："+data.order_no;
+
+  if(pay==="usdt"){
+    const payRes=await fetch(API+"/payments/checkout",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({order_no:data.order_no,pay_currency:"usdttrc20"})
+    });
+
+    const p=await payRes.json();
+
+    document.getElementById("qr").innerHTML=`
+      <img src="${p.qr_code_url}">
+      <div>${p.pay_address}</div>
+    `;
+  }else{
+    document.getElementById("qr").innerHTML=`
+      <img src="/static/qrcodes/${pay}.png">
+      <div>订单号：${data.order_no}</div>
+    `;
+  }
+}
 </script>
 
 </body>
