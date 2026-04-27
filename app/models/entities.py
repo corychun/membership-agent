@@ -55,3 +55,14 @@ class InventoryItem(Base):
     order_id = Column(Integer, ForeignKey("orders.id"))
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(30), default="support", nullable=False)
+    is_active = Column(Integer, default=1)  # 1=启用 0=禁用
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime)
