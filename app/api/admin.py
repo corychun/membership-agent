@@ -29,8 +29,8 @@ def check_admin_password(password: str | None):
 
 
 def check_admin_login(username: str | None, password: str | None):
-    expected_user = os.getenv("ADMIN_USERNAME", "admin")
-    expected_pwd = os.getenv("ADMIN_PASSWORD", "123456")
+    expected_user = os.getenv("ADMIN_USERNAME", "chun")
+    expected_pwd = os.getenv("ADMIN_PASSWORD", "Ch011290_")
 
     if username != expected_user or password != expected_pwd:
         raise HTTPException(status_code=401, detail="管理员账号或密码错误")
