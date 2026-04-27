@@ -2,148 +2,75 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>订单管理</title>
+  <title>后台管理</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f6f7fb;
-      margin: 0;
-      padding: 32px 16px;
-      color: #111827;
-    }
-    .wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .top, .panel {
-      background: #fff;
-      padding: 20px;
-      border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
-      margin-bottom: 18px;
-    }
-    input, button, select, textarea {
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    input, select, textarea {
-      border: 1px solid #d1d5db;
-    }
-    input {
-      width: 260px;
-    }
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      margin-top: 10px;
-      font-family: Arial, sans-serif;
-    }
-    button {
-      border: none;
-      background: #111827;
-      color: #fff;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    button:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
-      margin-bottom: 18px;
-    }
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 14px;
-      text-align: left;
-      vertical-align: top;
-    }
-    th {
-      background: #f3f4f6;
-    }
-    .small {
-      color: #6b7280;
-      font-size: 12px;
-      margin-top: 6px;
-    }
-    .ok {
-      color: #047857;
-      font-weight: bold;
-    }
-    .warn {
-      color: #b45309;
-      font-weight: bold;
-    }
-    .danger {
-      color: #b91c1c;
-      font-weight: bold;
-    }
-    .toolbar {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .stock-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-    .stock-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 14px;
-    }
-    .stock-card strong {
-      font-size: 18px;
-    }
+    body{font-family:Arial;background:#f6f7fb;margin:0;padding:32px 16px;color:#111827}
+    .wrap{max-width:1200px;margin:auto}
+    .panel{background:#fff;padding:20px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.06);margin-bottom:18px}
+    button,input,select,textarea{padding:10px 12px;border-radius:8px;font-size:14px;box-sizing:border-box}
+    input,select,textarea{border:1px solid #d1d5db}
+    button{border:none;background:#111827;color:#fff;font-weight:700;cursor:pointer}
+    button:disabled{background:#9ca3af;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}
+    th,td{padding:12px;border-bottom:1px solid #e5e7eb;font-size:14px;text-align:left;vertical-align:top}
+    th{background:#f3f4f6}
+    textarea{width:100%;min-height:110px;margin-top:10px}
+    .ok{color:#047857;font-weight:bold}
+    .warn{color:#b45309;font-weight:bold}
+    .danger{color:#b91c1c;font-weight:bold}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:#6b7280;font-size:13px}
   </style>
 </head>
 
 <body>
-  <div class="wrap">
-    <div class="top">
-      <h2>订单管理</h2>
-      <p class="small">用于微信 / 支付宝人工确认收款后自动发货</p>
+<div class="wrap">
 
-      <div class="toolbar">
-        <input id="adminPassword" type="password" placeholder="后台密码 ADMIN_PASSWORD" />
-        <button id="loadBtn" onclick="loadAll()">刷新全部</button>
-      </div>
+  <div class="panel">
+    <div class="toolbar">
+      <h2 style="margin:0;margin-right:auto">后台管理</h2>
+      <button onclick="logout()">退出登录</button>
     </div>
+    <p class="muted">订单管理 / 库存管理 / 用户订单查询</p>
+    <button onclick="loadAll()">刷新全部</button>
+  </div>
 
-    <div class="panel">
-      <h3>库存余量</h3>
-      <div id="stockSummary" class="stock-grid">加载中...</div>
+  <div class="panel">
+    <h3>库存余量</h3>
+    <div id="stockSummary" class="grid">加载中...</div>
+  </div>
+
+  <div class="panel">
+    <h3>添加库存</h3>
+    <div class="toolbar">
+      <select id="addProduct">
+        <option value="GPT">GPT</option>
+        <option value="CLAUDE">CLAUDE</option>
+        <option value="VIP">VIP</option>
+        <option value="MJ">MJ</option>
+      </select>
+      <button onclick="addStock()">添加库存</button>
     </div>
+    <textarea id="codesText" placeholder="一行一个卡密，例如：
+gpt-012
+gpt-013
+gpt-014"></textarea>
+    <p class="muted">添加后进入 available 库存，后台确认收款时会自动扣减一条。</p>
+  </div>
 
-    <div class="panel">
-      <h3>添加库存</h3>
-      <div class="toolbar">
-        <select id="addProduct">
-          <option value="GPT">GPT</option>
-          <option value="CLAUDE">CLAUDE</option>
-          <option value="VIP">VIP</option>
-          <option value="MJ">MJ</option>
-        </select>
-        <button onclick="addStock()">添加库存</button>
-      </div>
-      <textarea id="codesText" placeholder="一行一个卡密，例如：&#10;gpt-012&#10;gpt-013&#10;gpt-014"></textarea>
-      <p class="small">添加后会进入 available 库存，用户下单后后台确认收款会自动扣减一条。</p>
+  <div class="panel">
+    <h3>用户订单查询</h3>
+    <div class="toolbar">
+      <input id="queryOrderNo" placeholder="输入订单号，例如 ORD-XXXX" style="width:300px">
+      <button onclick="queryOrder()">查询</button>
     </div>
+    <div id="queryResult" style="margin-top:12px">请输入订单号查询。</div>
+  </div>
 
+  <div class="panel">
+    <h3>订单列表</h3>
     <table>
       <thead>
         <tr>
@@ -159,280 +86,220 @@
         </tr>
       </thead>
       <tbody id="ordersBody">
-        <tr>
-          <td colspan="9">请输入后台密码，然后点击“刷新全部”。</td>
-        </tr>
+        <tr><td colspan="9">加载中...</td></tr>
       </tbody>
     </table>
   </div>
 
-  <script>
-    const API_BASE = "https://membership-agent.onrender.com";
+</div>
 
-    function getPwd() {
-      return document.getElementById("adminPassword").value.trim();
+<script>
+const API_BASE = "https://membership-agent.onrender.com";
+
+const adminPwd = localStorage.getItem("admin_password");
+
+if (!adminPwd) {
+  window.location.href = "/static/login.html";
+}
+
+function logout(){
+  localStorage.removeItem("admin_username");
+  localStorage.removeItem("admin_password");
+  window.location.href = "/static/login.html";
+}
+
+function normalize(v){ return String(v || "").toLowerCase(); }
+
+function safe(v){
+  return v === null || v === undefined || v === "" ? "-" : String(v);
+}
+
+function statusClass(v){
+  const s = normalize(v);
+  if(["paid","completed","delivered","success","finished"].includes(s)) return "ok";
+  if(["failed","cancelled","canceled","error"].includes(s)) return "danger";
+  return "warn";
+}
+
+async function parseJsonSafe(res){
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return {raw:text};
+  }
+}
+
+function getError(data){
+  if(!data) return "未知错误";
+  if(typeof data.detail === "string") return data.detail;
+  if(data.detail) return JSON.stringify(data.detail);
+  if(data.error) return data.error;
+  if(data.raw) return data.raw;
+  return JSON.stringify(data);
+}
+
+async function loadAll(){
+  await loadStock();
+  await loadOrders();
+}
+
+async function loadStock(){
+  const box = document.getElementById("stockSummary");
+  box.innerHTML = "加载中...";
+
+  try{
+    const res = await fetch(`${API_BASE}/inventory/stats`);
+    const data = await parseJsonSafe(res);
+    if(!res.ok) throw new Error(getError(data));
+
+    box.innerHTML = (data.items || []).map(i => `
+      <div class="card">
+        <strong>${safe(i.product_code)}</strong>
+        <div>可用：<span class="${Number(i.available)>0?'ok':'danger'}">${safe(i.available)}</span></div>
+        <div>总数：${safe(i.total)}</div>
+        <div>已用：${safe(i.used)}</div>
+      </div>
+    `).join("");
+
+  }catch(e){
+    box.innerHTML = `<span class="danger">库存加载失败：${e.message}</span>`;
+  }
+}
+
+async function addStock(){
+  const product = document.getElementById("addProduct").value;
+  const codes = document.getElementById("codesText").value.trim();
+
+  if(!codes){
+    alert("请输入卡密");
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_BASE}/inventory/add`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        admin_password: adminPwd,
+        product_code: product,
+        codes: codes
+      })
+    });
+
+    const data = await parseJsonSafe(res);
+    if(!res.ok) throw new Error(getError(data));
+
+    alert(`添加成功：${data.inserted} 条`);
+    document.getElementById("codesText").value = "";
+    await loadStock();
+
+  }catch(e){
+    alert("添加失败：" + e.message);
+  }
+}
+
+async function loadOrders(){
+  const tbody = document.getElementById("ordersBody");
+  tbody.innerHTML = `<tr><td colspan="9">加载中...</td></tr>`;
+
+  try{
+    const res = await fetch(`${API_BASE}/admin/orders?admin_password=${encodeURIComponent(adminPwd)}`);
+    const data = await parseJsonSafe(res);
+    if(!res.ok) throw new Error(getError(data));
+
+    const items = data.items || [];
+
+    if(!items.length){
+      tbody.innerHTML = `<tr><td colspan="9">暂无订单</td></tr>`;
+      return;
     }
 
-    function normalize(value) {
-      return String(value || "").toLowerCase();
-    }
+    tbody.innerHTML = items.map(o => {
+      const delivered = ["delivered","completed","sent","success"].includes(normalize(o.delivery_status));
+      const orderNo = safe(o.order_no);
 
-    function statusClass(value) {
-      const s = normalize(value);
+      return `
+        <tr>
+          <td>${orderNo}</td>
+          <td>${safe(o.customer_email)}</td>
+          <td>${safe(o.product_code)}</td>
+          <td class="${statusClass(o.status)}">${safe(o.status)}</td>
+          <td class="${statusClass(o.payment_status)}">${safe(o.payment_status)}</td>
+          <td class="${statusClass(o.delivery_status)}">${safe(o.delivery_status)}</td>
+          <td>${safe(o.delivery_content)}</td>
+          <td>${safe(o.created_at)}</td>
+          <td>
+            <button ${delivered ? "disabled" : ""} onclick="confirmPaid('${orderNo}')">
+              ${delivered ? "已发货" : "确认收款并发货"}
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
 
-      if (["finished", "paid", "completed", "fulfilled", "delivered", "sent", "success"].includes(s)) {
-        return "ok";
-      }
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="9">加载失败：${e.message}</td></tr>`;
+  }
+}
 
-      if (["failed", "cancelled", "canceled", "error"].includes(s)) {
-        return "danger";
-      }
+async function confirmPaid(orderNo){
+  if(!confirm(`确认已收款并发货？\n订单号：${orderNo}`)) return;
 
-      return "warn";
-    }
+  try{
+    const res = await fetch(`${API_BASE}/admin/orders/confirm-paid`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        admin_password: adminPwd,
+        order_no: orderNo
+      })
+    });
 
-    function safeText(value) {
-      if (value === null || value === undefined || value === "") return "-";
-      return String(value);
-    }
+    const data = await parseJsonSafe(res);
+    if(!res.ok) throw new Error(getError(data));
 
-    function isDelivered(order) {
-      return ["delivered", "completed", "success", "sent"].includes(normalize(order.delivery_status));
-    }
+    alert("发货成功：" + (data.delivery_content || data.result?.content || data.msg));
+    await loadAll();
 
-    function canConfirm(order) {
-      if (isDelivered(order)) return false;
-      if (order.can_confirm === true) return true;
+  }catch(e){
+    alert("发货失败：" + e.message);
+  }
+}
 
-      const pay = normalize(order.payment_status);
+async function queryOrder(){
+  const orderNo = document.getElementById("queryOrderNo").value.trim();
+  const box = document.getElementById("queryResult");
 
-      return [
-        "waiting",
-        "pending",
-        "pending_payment",
-        "unpaid",
-        "paid",
-        "finished",
-        "confirmed",
-        "",
-        "none"
-      ].includes(pay);
-    }
+  if(!orderNo){
+    alert("请输入订单号");
+    return;
+  }
 
-    async function parseJsonSafe(res) {
-      const text = await res.text();
-      try {
-        return text ? JSON.parse(text) : {};
-      } catch {
-        return { raw: text };
-      }
-    }
+  box.innerHTML = "查询中...";
 
-    function getErrorMessage(data) {
-      if (!data) return "未知错误";
-      if (typeof data.detail === "string") return data.detail;
-      if (data.detail) return JSON.stringify(data.detail);
-      if (data.error) return data.error;
-      if (data.raw) return data.raw;
-      return JSON.stringify(data);
-    }
+  try{
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderNo)}`);
+    const data = await parseJsonSafe(res);
+    if(!res.ok) throw new Error(getError(data));
 
-    async function loadAll() {
-      await loadStock();
-      await loadOrders();
-    }
+    box.innerHTML = `
+      <div>订单号：${safe(data.order_no)}</div>
+      <div>邮箱：${safe(data.customer_email)}</div>
+      <div>产品：${safe(data.product_code)}</div>
+      <div>订单状态：<span class="${statusClass(data.status)}">${safe(data.status)}</span></div>
+      <div>支付状态：<span class="${statusClass(data.payment_status)}">${safe(data.payment_status)}</span></div>
+      <div>发货状态：<span class="${statusClass(data.delivery_status)}">${safe(data.delivery_status)}</span></div>
+      <div>发货内容：${safe(data.delivery_content)}</div>
+      <div>时间：${safe(data.created_at)}</div>
+    `;
 
-    async function loadStock() {
-      const box = document.getElementById("stockSummary");
-      box.innerHTML = "加载中...";
+  }catch(e){
+    box.innerHTML = `<span class="danger">查询失败：${e.message}</span>`;
+  }
+}
 
-      try {
-        const res = await fetch(`${API_BASE}/inventory/stats`);
-        const data = await parseJsonSafe(res);
-
-        if (!res.ok) throw new Error(getErrorMessage(data));
-
-        const items = data.items || [];
-
-        box.innerHTML = items.map(i => `
-          <div class="stock-card">
-            <strong>${safeText(i.product_code)}</strong>
-            <div>可用：<span class="${Number(i.available) > 0 ? "ok" : "danger"}">${safeText(i.available)}</span></div>
-            <div>总数：${safeText(i.total)}</div>
-            <div>已用：${safeText(i.used)}</div>
-          </div>
-        `).join("");
-
-      } catch (err) {
-        box.innerHTML = `<span class="danger">库存加载失败：${err.message}</span>`;
-      }
-    }
-
-    async function addStock() {
-      const pwd = getPwd();
-      const product = document.getElementById("addProduct").value;
-      const codes = document.getElementById("codesText").value.trim();
-
-      if (!pwd) {
-        alert("请输入后台密码");
-        return;
-      }
-
-      if (!codes) {
-        alert("请输入卡密，一行一个");
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/inventory/add`, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            admin_password: pwd,
-            product_code: product,
-            codes: codes
-          })
-        });
-
-        const data = await parseJsonSafe(res);
-
-        if (!res.ok) throw new Error(getErrorMessage(data));
-
-        alert(`✅ 添加成功：${data.inserted} 条`);
-        document.getElementById("codesText").value = "";
-        await loadStock();
-
-      } catch (err) {
-        alert(`❌ 添加失败：${err.message}`);
-      }
-    }
-
-    async function loadOrders() {
-      const pwd = getPwd();
-
-      if (!pwd) {
-        alert("请输入后台密码");
-        return;
-      }
-
-      const loadBtn = document.getElementById("loadBtn");
-      const tbody = document.getElementById("ordersBody");
-
-      loadBtn.disabled = true;
-      tbody.innerHTML = `<tr><td colspan="9">加载中...</td></tr>`;
-
-      try {
-        const res = await fetch(
-          `${API_BASE}/admin/orders?admin_password=${encodeURIComponent(pwd)}`
-        );
-
-        const data = await parseJsonSafe(res);
-
-        if (!res.ok) {
-          throw new Error(getErrorMessage(data));
-        }
-
-        const items = data.items || [];
-
-        if (!items.length) {
-          tbody.innerHTML = `<tr><td colspan="9">暂无订单</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = items.map(o => {
-          const orderNo = safeText(o.order_no);
-          const delivered = isDelivered(o);
-          const allowed = canConfirm(o);
-
-          let buttonText = "确认收款并发货";
-          let disabled = "";
-
-          if (delivered) {
-            buttonText = "已发货";
-            disabled = "disabled";
-          } else if (!allowed) {
-            buttonText = "状态不允许";
-            disabled = "disabled";
-          }
-
-          return `
-            <tr>
-              <td>${orderNo}</td>
-              <td>${safeText(o.customer_email)}</td>
-              <td>${safeText(o.product_code)}</td>
-              <td class="${statusClass(o.status)}">${safeText(o.status)}</td>
-              <td class="${statusClass(o.payment_status)}">${safeText(o.payment_status)}</td>
-              <td class="${statusClass(o.delivery_status)}">${safeText(o.delivery_status)}</td>
-              <td>${safeText(o.delivery_content)}</td>
-              <td>${safeText(o.created_at)}</td>
-              <td>
-                <button onclick="confirmPaid('${orderNo}')" ${disabled}>
-                  ${buttonText}
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join("");
-
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="9">加载失败：${err.message}</td></tr>`;
-      } finally {
-        loadBtn.disabled = false;
-      }
-    }
-
-    async function confirmPaid(orderNo) {
-      const pwd = getPwd();
-
-      if (!pwd) {
-        alert("请输入后台密码");
-        return;
-      }
-
-      if (!orderNo || orderNo === "-") {
-        alert("订单号无效");
-        return;
-      }
-
-      if (!confirm(`确认已收款，并立即自动发货？\n\n订单号：${orderNo}`)) {
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/admin/orders/confirm-paid`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            admin_password: pwd,
-            order_no: orderNo
-          })
-        });
-
-        const data = await parseJsonSafe(res);
-
-        if (!res.ok) {
-          throw new Error(getErrorMessage(data));
-        }
-
-        const result = data.result || {};
-        const content =
-          data.delivery_content ||
-          data.item_value ||
-          result.content ||
-          result.delivery_content ||
-          result.message ||
-          data.msg ||
-          "已发送邮件";
-
-        alert(`✅ 发货成功：${content}`);
-        await loadAll();
-
-      } catch (err) {
-        alert(`❌ 发货失败：${err.message}`);
-      }
-    }
-
-    loadStock();
-  </script>
+loadAll();
+</script>
 </body>
 </html>
