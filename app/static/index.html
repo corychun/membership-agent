@@ -1,219 +1,279 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>购买会员</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>购买会员</title>
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f6f7fb;
-  margin: 0;
-  padding: 40px 16px;
-}
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
+      margin: 0;
+      padding: 40px 16px;
+      color: #111827;
+    }
 
-.container {
-  max-width: 520px;
-  margin: 0 auto;
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-}
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
 
-h2 {
-  margin-top: 0;
-}
+    h2 {
+      margin-top: 0;
+    }
 
-label {
-  display: block;
-  margin: 14px 0 6px;
-  font-weight: 600;
-}
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 600;
+    }
 
-select, input, button {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-}
+    select, input, button {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      box-sizing: border-box;
+    }
 
-button {
-  background: #0f172a;
-  color: #fff;
-  margin-top: 16px;
-  cursor: pointer;
-}
+    select, input {
+      border: 1px solid #d1d5db;
+    }
 
-.qr-box {
-  margin-top: 16px;
-  text-align: center;
-  background: #f3f4f6;
-  padding: 16px;
-  border-radius: 12px;
-}
+    button {
+      margin-top: 16px;
+      border: none;
+      background: #111827;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
-.small {
-  font-size: 13px;
-  color: #666;
-}
+    button:disabled {
+      background: #9ca3af;
+    }
 
-#status {
-  margin-top: 16px;
-  padding: 12px;
-  background: #f3f4f6;
-  border-radius: 10px;
-}
-</style>
+    .box {
+      margin-top: 14px;
+      padding: 16px;
+      background: #f9fafb;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .ok { color: #047857; }
+    .warn { color: #b45309; }
+    .danger { color: #b91c1c; }
+
+    img {
+      max-width: 220px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 
 <body>
 <div class="container">
 
-<h2>购买会员</h2>
+  <h2>购买会员</h2>
 
-<label>选择产品</label>
-<select id="product">
-  <option value="GPT">GPT</option>
-  <option value="CLAUDE">Claude</option>
-  <option value="VIP">VIP</option>
-  <option value="MJ">MJ</option>
-</select>
+  <label>选择产品</label>
+  <select id="product">
+    <option value="GPT">GPT</option>
+    <option value="CLAUDE">Claude</option>
+    <option value="VIP">VIP</option>
+    <option value="MJ">MJ</option>
+  </select>
 
-<!-- 💰 价格 -->
-<div id="priceBox" style="margin-top:6px;color:#555;">
-  价格：¥10
-</div>
+  <div id="priceBox">价格：¥10</div>
+  <div id="stockBox" class="ok">库存加载中...</div>
 
-<!-- 📦 库存 -->
-<div id="stockBox" style="margin-top:4px;color:#16a34a;">
-  库存剩余：加载中...
-</div>
+  <label>邮箱</label>
+  <input id="email" placeholder="输入你的邮箱">
 
-<label>邮箱</label>
-<input id="email" placeholder="输入你的邮箱" />
+  <label>支付方式</label>
+  <select id="payMethod">
+    <option value="wechat">微信支付</option>
+    <option value="alipay">支付宝</option>
+    <option value="usdt">USDT / TRC20</option>
+  </select>
 
-<label>支付方式</label>
-<select id="payMethod">
-  <option value="wechat">微信支付</option>
-  <option value="alipay">支付宝</option>
-</select>
+  <div class="box" id="qrBox"></div>
 
-<div class="qr-box">
-  <div style="margin-bottom:8px;font-weight:600;">扫码支付</div>
-  <img id="qrcodeImg" src="/static/qrcodes/wechat.png" style="width:220px;" />
-</div>
+  <button id="buyBtn" onclick="buy()">立即购买</button>
 
-<button onclick="createOrder()">立即购买</button>
-
-<div id="status">等待操作...</div>
-
-<div class="small">
-  扫码付款后，请保留订单号，等待后台确认自动发货
-</div>
+  <div id="statusBox" class="box">等待操作...</div>
 
 </div>
 
 <script>
-const API_BASE = "";
+const API_BASE = "https://membership-agent.onrender.com";
 
-// 💰 价格表
+/* ===== 价格 ===== */
 const PRICE_MAP = {
   GPT: 180,
-  CLAUDE: 220,
-  VIP: 20,
-  MJ: 15
+  CLAUDE: 200,
+  VIP: 300,
+  MJ: 150
 };
 
-// 🔁 切换二维码
-document.getElementById("payMethod").addEventListener("change", (e) => {
-  const img = document.getElementById("qrcodeImg");
-  img.src = e.target.value === "wechat"
-    ? "/static/qrcodes/wechat.png"
-    : "/static/qrcodes/alipay.png";
-});
-
-// 🔁 产品切换
+/* ===== DOM ===== */
 const productSelect = document.getElementById("product");
+const priceBox = document.getElementById("priceBox");
+const stockBox = document.getElementById("stockBox");
+const payMethod = document.getElementById("payMethod");
+const qrBox = document.getElementById("qrBox");
+const statusBox = document.getElementById("statusBox");
+const buyBtn = document.getElementById("buyBtn");
 
-productSelect.addEventListener("change", () => {
-  updatePrice();
-  loadStock();
-});
-
-// 💰 更新价格
-function updatePrice() {
+/* ===== 更新价格 ===== */
+function updatePrice(){
   const p = productSelect.value;
-  document.getElementById("priceBox").innerText =
-    "价格：¥" + (PRICE_MAP[p] || 0);
+  priceBox.innerText = "价格：¥" + (PRICE_MAP[p] || 0);
 }
 
-// 📦 获取库存
-async function loadStock() {
-  const p = productSelect.value;
-
-  try {
-    const res = await fetch(API_BASE + "/inventory/stats");
+/* ===== 加载库存 ===== */
+async function loadStock(){
+  try{
+    const res = await fetch(`${API_BASE}/inventory/stats`);
     const data = await res.json();
 
+    const p = productSelect.value;
     const item = data.items.find(i => i.product_code === p);
 
-    document.getElementById("stockBox").innerText =
-      "库存剩余：" + (item ? item.available : 0);
-  } catch {
-    document.getElementById("stockBox").innerText = "库存获取失败";
+    const stock = item ? item.available : 0;
+
+    if(stock <= 0){
+      stockBox.innerHTML = `<span class="danger">库存不足，暂时无法购买</span>`;
+      buyBtn.disabled = true;
+    }else{
+      stockBox.innerHTML = `<span class="ok">库存剩余：${stock}</span>`;
+      buyBtn.disabled = false;
+    }
+
+  }catch(e){
+    stockBox.innerHTML = `<span class="danger">库存加载失败</span>`;
   }
 }
 
-// 🧾 创建订单
-async function createOrder() {
-  const product = document.getElementById("product").value;
-  const email = document.getElementById("email").value;
-  const statusBox = document.getElementById("status");
+/* ===== 切换二维码 ===== */
+function updateQR(){
+  const method = payMethod.value;
 
-  if (!email) {
+  if(method === "wechat"){
+    qrBox.innerHTML = `
+      <div>微信支付</div>
+      <img src="/static/qrcodes/wechat.png">
+    `;
+  }
+
+  if(method === "alipay"){
+    qrBox.innerHTML = `
+      <div>支付宝</div>
+      <img src="/static/qrcodes/alipay.png">
+    `;
+  }
+
+  if(method === "usdt"){
+    qrBox.innerHTML = `
+      <div>USDT支付（自动生成）</div>
+    `;
+  }
+}
+
+/* ===== 创建订单 ===== */
+async function buy(){
+  const product = productSelect.value;
+  const email = document.getElementById("email").value;
+  const method = payMethod.value;
+
+  if(!email){
     alert("请输入邮箱");
     return;
   }
 
   statusBox.innerText = "创建订单中...";
 
-  try {
-    const res = await fetch(API_BASE + "/orders/create", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
+  try{
+    const res = await fetch(`${API_BASE}/orders`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
         product_code: product,
-        email: email
+        customer_email: email
       })
     });
 
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.detail || "下单失败");
+    if(!res.ok){
+      throw new Error(data.detail || "创建订单失败");
     }
 
-    // ✅ 下单成功提示
+    const orderNo = data.order_no;
+
+    /* ===== 微信 / 支付宝 ===== */
+    if(method === "wechat" || method === "alipay"){
+      statusBox.innerHTML = `
+        <div class="ok">
+          订单创建成功：${orderNo}<br>
+          请扫码付款，付款后后台自动发货
+        </div>
+      `;
+      return;
+    }
+
+    /* ===== USDT ===== */
+    const payRes = await fetch(`${API_BASE}/payments/checkout`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        order_no: orderNo,
+        pay_currency:"usdttrc20"
+      })
+    });
+
+    const payData = await payRes.json();
+
+    if(!payRes.ok){
+      throw new Error(payData.detail || "支付创建失败");
+    }
+
+    qrBox.innerHTML = `
+      <div>USDT支付</div>
+      <img src="${payData.qr_code_url}">
+      <div>${payData.pay_address}</div>
+    `;
+
     statusBox.innerHTML = `
-      <div style="color:#333;">
-        订单号：<b>${data.order_no}</b><br/><br/>
-        💰 请扫码付款并备注订单号<br/>
-        📩 付款后后台确认自动发货<br/><br/>
-        ⏳ 请勿关闭页面
+      <div class="ok">
+        请完成 USDT 支付<br>
+        订单号：${orderNo}
       </div>
     `;
 
-  } catch (e) {
-    statusBox.innerText = "❌ " + e.message;
+  }catch(e){
+    statusBox.innerHTML = `<span class="danger">${e.message}</span>`;
   }
 }
 
-// 初始化
+/* ===== 监听 ===== */
+productSelect.addEventListener("change", ()=>{
+  updatePrice();
+  loadStock();
+});
+
+payMethod.addEventListener("change", updateQR);
+
+/* ===== 初始化 ===== */
 updatePrice();
 loadStock();
+updateQR();
 </script>
 
 </body>
