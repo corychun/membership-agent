@@ -1,27 +1,21 @@
-import os
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.admin_auth import require_permission
+from app.models.entities import AdminUser
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
 class AddInventoryRequest(BaseModel):
-    admin_password: str
     product_code: str
     codes: Any
-
-
-def check_admin_password(password: str | None):
-    expected = os.getenv("ADMIN_PASSWORD", "123456")
-    if password != expected:
-        raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
 def _get_inventory_table(db: Session) -> Dict[str, Any]:
@@ -40,13 +34,13 @@ def _get_inventory_table(db: Session) -> Dict[str, Any]:
     cols = {c["name"] for c in inspector.get_columns(table_name)}
 
     product_col = "product_code" if "product_code" in cols else "product"
-    content_col = "item_value" if "item_value" in cols else "content"
+    content_col = "item_value" if "item_value" in cols else ("content" if "content" in cols else "code")
 
     if product_col not in cols:
         raise HTTPException(status_code=500, detail="库存表缺少 product_code 或 product 字段")
 
     if content_col not in cols:
-        raise HTTPException(status_code=500, detail="库存表缺少 item_value 或 content 字段")
+        raise HTTPException(status_code=500, detail="库存表缺少 item_value、content 或 code 字段")
 
     return {
         "table": table_name,
@@ -110,10 +104,9 @@ def inventory_stats(db: Session = Depends(get_db)):
 
 @router.get("/list")
 def inventory_list(
-    admin_password: str = Query(...),
     db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("inventory:read")),
 ):
-    check_admin_password(admin_password)
 
     meta = _get_inventory_table(db)
     table = meta["table"]
@@ -148,8 +141,11 @@ def inventory_list(
 
 
 @router.post("/add")
-def add_inventory(payload: AddInventoryRequest, db: Session = Depends(get_db)):
-    check_admin_password(payload.admin_password)
+def add_inventory(
+    payload: AddInventoryRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("inventory:write")),
+):
 
     meta = _get_inventory_table(db)
     table = meta["table"]
