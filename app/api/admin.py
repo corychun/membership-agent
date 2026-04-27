@@ -12,28 +12,33 @@ from app.services.delivery import mark_paid_and_deliver
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+# ================= 登录接口 =================
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 
-class ConfirmPaidRequest(BaseModel):
-    admin_password: str
-    order_no: str
+@router.post("/login")
+def admin_login(payload: LoginRequest):
+    admin_user = os.getenv("ADMIN_USERNAME", "admin")
+    admin_pass = os.getenv("ADMIN_PASSWORD", "123456")
 
+    if payload.username != admin_user or payload.password != admin_pass:
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+
+    return {
+        "ok": True,
+        "msg": "login success"
+    }
+
+
+# ================= 校验函数 =================
 
 def check_admin_password(password: str | None):
     expected = os.getenv("ADMIN_PASSWORD", "123456")
     if password != expected:
         raise HTTPException(status_code=401, detail="Invalid admin password")
-
-
-def check_admin_login(username: str | None, password: str | None):
-    expected_user = os.getenv("ADMIN_USERNAME", "chun")
-    expected_pwd = os.getenv("ADMIN_PASSWORD", "Ch011290_")
-
-    if username != expected_user or password != expected_pwd:
-        raise HTTPException(status_code=401, detail="管理员账号或密码错误")
 
 
 def norm(value):
@@ -66,11 +71,7 @@ def can_manual_confirm(order: Order) -> bool:
     }
 
 
-@router.post("/login")
-def admin_login(payload: LoginRequest):
-    check_admin_login(payload.username, payload.password)
-    return {"ok": True, "msg": "login success"}
-
+# ================= 订单列表 =================
 
 @router.get("/orders")
 def list_orders(
@@ -79,7 +80,12 @@ def list_orders(
 ):
     check_admin_password(admin_password)
 
-    orders = db.query(Order).order_by(Order.id.desc()).limit(100).all()
+    orders = (
+        db.query(Order)
+        .order_by(Order.id.desc())
+        .limit(100)
+        .all()
+    )
 
     return {
         "items": [
@@ -98,6 +104,13 @@ def list_orders(
             for o in orders
         ]
     }
+
+
+# ================= 发货 =================
+
+class ConfirmPaidRequest(BaseModel):
+    admin_password: str
+    order_no: str
 
 
 @router.post("/orders/confirm-paid")
@@ -138,7 +151,15 @@ def confirm_paid_and_deliver(
             "result": result,
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
+
     except Exception as e:
         db.rollback()
         print(traceback.format_exc())
-        raise HTTPException(status_code=400, detail=f"发货失败：{str(e)}")
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"发货失败：{str(e)}"
+        )
