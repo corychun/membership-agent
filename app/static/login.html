@@ -48,7 +48,7 @@ button {
 
   <button onclick="login()">登录</button>
 
-  <div id="msg"></div>
+  <div id="msg" style="color:red;margin-top:10px;"></div>
 </div>
 
 <script>
@@ -65,10 +65,15 @@ async function login() {
   const data = await res.json();
 
   if (res.ok) {
-    localStorage.setItem("admin_login", "1");
-    window.location.href = "/static/admin.html";
+    // ✅ 存账号密码（关键）
+    localStorage.setItem("admin_username", username);
+    localStorage.setItem("admin_password", password);
+
+    // ✅ 跳转（加防缓存）
+    window.location.href = "/static/admin.html?v=" + Date.now();
   } else {
-    document.getElementById("msg").innerText = data.detail || "登录失败";
+    document.getElementById("msg").innerText =
+      data.detail || "登录失败";
   }
 }
 </script>
