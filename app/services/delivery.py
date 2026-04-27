@@ -116,6 +116,41 @@ def _mark_inventory_used(db: Session, item_id: int, order: Order):
     })
 
 
+def _create_delivery_record_safe(db: Session, order: Order, content: str):
+    """
+    兼容你当前 DeliveryRecord 模型：
+    只给模型支持的字段赋值，避免 delivered_at/status 这类字段不存在时报错。
+    """
+    mapper_cols = DeliveryRecord.__mapper__.columns.keys()
+
+    kwargs = {}
+
+    if "order_id" in mapper_cols:
+        kwargs["order_id"] = order.id
+
+    if "status" in mapper_cols:
+        kwargs["status"] = "delivered"
+
+    if "content" in mapper_cols:
+        kwargs["content"] = content
+
+    if "delivery_content" in mapper_cols:
+        kwargs["delivery_content"] = content
+
+    if "item_value" in mapper_cols:
+        kwargs["item_value"] = content
+
+    if "delivered_at" in mapper_cols:
+        kwargs["delivered_at"] = datetime.utcnow()
+
+    if "created_at" in mapper_cols:
+        kwargs["created_at"] = datetime.utcnow()
+
+    if kwargs:
+        record = DeliveryRecord(**kwargs)
+        db.add(record)
+
+
 def deliver_order(db: Session, order: Order):
     if not order:
         raise ValueError("order not found")
@@ -138,18 +173,12 @@ def deliver_order(db: Session, order: Order):
 
     _mark_inventory_used(db, item["id"], order)
 
-    record = DeliveryRecord(
-        order_id=order.id,
-        status="delivered",
-        content=content,
-        delivered_at=datetime.utcnow(),
-    )
-
     order.delivery_status = "delivered"
     order.delivery_content = content
     order.status = "completed"
 
-    db.add(record)
+    _create_delivery_record_safe(db, order, content)
+
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -186,7 +215,9 @@ def mark_paid_and_deliver(db: Session, order: Order):
 
     order.payment_status = "paid"
     order.status = "paid"
-    order.paid_at = datetime.utcnow()
+
+    if hasattr(order, "paid_at"):
+        order.paid_at = datetime.utcnow()
 
     db.add(order)
     db.commit()
