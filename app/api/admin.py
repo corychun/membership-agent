@@ -1,60 +1,350 @@
+import traceback
+from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Body
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from app.core.admin_auth import admin_to_dict, normalize_role, require_permission, get_current_admin
 from app.core.db import get_db
-from app.models.entities import Order
-from app.core.admin_auth import get_current_admin
+from app.core.security import create_admin_token, hash_password, verify_password
+from app.models.entities import AdminUser, Order
+from app.services.delivery import mark_paid_and_deliver
 
-router = APIRouter()
-
-
-# =========================
-# 获取订单列表（必须有）
-# =========================
-@router.get("/admin/orders")
-def get_orders(db: Session = Depends(get_db), admin=Depends(get_current_admin)):
-    orders = db.query(Order).order_by(Order.created_at.desc()).all()
-    return orders
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-# =========================
-# 批量确认收款
-# =========================
-@router.post("/admin/orders/batch_pay")
-def batch_pay_orders(
-    order_ids: list[str] = Body(...),
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class ConfirmPaidRequest(BaseModel):
+    order_no: str
+
+
+class BulkConfirmPaidRequest(BaseModel):
+    order_nos: list[str]
+
+
+class CreateAdminRequest(BaseModel):
+    username: str
+    password: str
+    role: str = "support"
+
+
+class UpdateAdminRequest(BaseModel):
+    password: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+def norm(value):
+    return str(value or "").lower()
+
+
+def is_delivered(order: Order) -> bool:
+    return norm(order.delivery_status) in {"delivered", "completed", "success", "sent"}
+
+
+def can_manual_confirm(order: Order) -> bool:
+    if is_delivered(order):
+        return False
+    return norm(order.payment_status) in {
+        "waiting",
+        "pending",
+        "pending_payment",
+        "unpaid",
+        "paid",
+        "finished",
+        "confirmed",
+        "",
+        "none",
+    }
+
+
+def order_to_dict(o: Order):
+    return {
+        "id": o.id,
+        "order_no": o.order_no,
+        "product_code": o.product_code,
+        "customer_email": o.customer_email,
+        "payment_status": o.payment_status,
+        "status": o.status,
+        "delivery_status": o.delivery_status,
+        "delivery_content": o.delivery_content,
+        "created_at": str(o.created_at) if o.created_at else None,
+        "can_confirm": can_manual_confirm(o),
+    }
+
+
+@router.post("/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    username = (payload.username or "").strip()
+    password = payload.password or ""
+
+    admin = db.query(AdminUser).filter(AdminUser.username == username).first()
+
+    if not admin or int(admin.is_active or 0) != 1:
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+
+    if not verify_password(password, admin.password_hash):
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+
+    admin.last_login_at = datetime.utcnow()
+    db.commit()
+    db.refresh(admin)
+
+    token = create_admin_token({
+        "sub": admin.id,
+        "username": admin.username,
+        "role": admin.role,
+    })
+
+    return {
+        "ok": True,
+        "access_token": token,
+        "token_type": "bearer",
+        "admin": admin_to_dict(admin),
+    }
+
+
+@router.get("/me")
+def me(current_admin: AdminUser = Depends(require_permission("orders:read"))):
+    return {
+        "ok": True,
+        "admin": admin_to_dict(current_admin),
+    }
+
+
+@router.get("/orders")
+def list_orders(
     db: Session = Depends(get_db),
-    admin=Depends(get_current_admin)
+    current_admin: AdminUser = Depends(require_permission("orders:read")),
 ):
-    updated = []
-    failed = []
+    orders = db.query(Order).order_by(Order.id.desc()).limit(200).all()
+    return {
+        "items": [order_to_dict(o) for o in orders]
+    }
 
-    for order_id in order_ids:
-        order = db.query(Order).filter(Order.order_no == order_id).first()
+
+@router.post("/orders/confirm-paid")
+def confirm_paid_and_deliver(
+    payload: ConfirmPaidRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
+):
+    order = db.query(Order).filter(Order.order_no == payload.order_no).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    if is_delivered(order):
+        return {
+            "ok": True,
+            "msg": "already delivered",
+            "order_no": order.order_no,
+            "delivery_content": order.delivery_content,
+        }
+
+    if not can_manual_confirm(order):
+        raise HTTPException(
+            status_code=400,
+            detail=f"当前状态不允许发货：payment_status={order.payment_status}, delivery_status={order.delivery_status}",
+        )
+
+    try:
+        result = mark_paid_and_deliver(db, order)
+        db.refresh(order)
+
+        return {
+            "ok": True,
+            "msg": "paid + delivered",
+            "order_no": order.order_no,
+            "delivery_content": order.delivery_content,
+            "result": result,
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        print("confirm_paid_and_deliver error:")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=400, detail=f"发货失败：{str(e)}")
+
+
+@router.post("/orders/confirm-paid-bulk")
+def confirm_paid_and_deliver_bulk(
+    payload: BulkConfirmPaidRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
+):
+    order_nos = []
+    seen = set()
+
+    for order_no in payload.order_nos or []:
+        value = (order_no or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            order_nos.append(value)
+
+    if not order_nos:
+        raise HTTPException(status_code=400, detail="请选择要确认的订单")
+
+    if len(order_nos) > 50:
+        raise HTTPException(status_code=400, detail="单次最多批量处理 50 个订单")
+
+    results = []
+    success_count = 0
+    failed_count = 0
+
+    for order_no in order_nos:
+        order = db.query(Order).filter(Order.order_no == order_no).first()
 
         if not order:
-            failed.append({"order_no": order_id, "reason": "订单不存在"})
+            failed_count += 1
+            results.append({
+                "order_no": order_no,
+                "ok": False,
+                "msg": "订单不存在",
+            })
             continue
 
-        if order.payment_status == "paid":
-            failed.append({"order_no": order_id, "reason": "已支付"})
+        if is_delivered(order):
+            success_count += 1
+            results.append({
+                "order_no": order_no,
+                "ok": True,
+                "msg": "已发货，跳过",
+                "delivery_content": order.delivery_content,
+            })
+            continue
+
+        if not can_manual_confirm(order):
+            failed_count += 1
+            results.append({
+                "order_no": order_no,
+                "ok": False,
+                "msg": f"状态不允许：payment_status={order.payment_status}, delivery_status={order.delivery_status}",
+            })
             continue
 
         try:
-            order.payment_status = "paid"
-            order.status = "completed"
-            order.delivery_status = "delivered"
+            result = mark_paid_and_deliver(db, order)
+            db.refresh(order)
 
-            # ⚠️ 如果你有发货函数，在这里调用
-            # deliver_order(order)
-
-            updated.append(order_id)
+            success_count += 1
+            results.append({
+                "order_no": order_no,
+                "ok": True,
+                "msg": "paid + delivered",
+                "delivery_content": order.delivery_content,
+                "result": result,
+            })
 
         except Exception as e:
-            failed.append({"order_no": order_id, "reason": str(e)})
-
-    db.commit()
+            db.rollback()
+            failed_count += 1
+            results.append({
+                "order_no": order_no,
+                "ok": False,
+                "msg": str(e),
+            })
 
     return {
-        "success": updated,
-        "failed": failed
+        "ok": failed_count == 0,
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "items": results,
+    }
+
+
+# 兼容旧版 admin.html 的批量接口
+@router.post("/orders/batch_pay")
+def batch_pay_orders_compatible(
+    order_ids: list[str] = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
+):
+    payload = BulkConfirmPaidRequest(order_nos=order_ids)
+    return confirm_paid_and_deliver_bulk(payload, db, current_admin)
+
+
+@router.get("/admins")
+def list_admins(
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("admins:manage")),
+):
+    admins = db.query(AdminUser).order_by(AdminUser.id.asc()).all()
+    return {
+        "items": [admin_to_dict(a) for a in admins]
+    }
+
+
+@router.post("/admins")
+def create_admin(
+    payload: CreateAdminRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("admins:manage")),
+):
+    username = (payload.username or "").strip()
+
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="管理员账号至少 3 位")
+
+    if db.query(AdminUser).filter(AdminUser.username == username).first():
+        raise HTTPException(status_code=400, detail="管理员账号已存在")
+
+    admin = AdminUser(
+        username=username,
+        password_hash=hash_password(payload.password),
+        role=normalize_role(payload.role),
+        is_active=1,
+        created_at=datetime.utcnow(),
+    )
+
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+
+    return {
+        "ok": True,
+        "admin": admin_to_dict(admin),
+    }
+
+
+@router.put("/admins/{admin_id}")
+def update_admin(
+    admin_id: int,
+    payload: UpdateAdminRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("admins:manage")),
+):
+    admin = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
+
+    if not admin:
+        raise HTTPException(status_code=404, detail="管理员不存在")
+
+    if admin.id == current_admin.id and payload.is_active is False:
+        raise HTTPException(status_code=400, detail="不能禁用当前登录的管理员")
+
+    if payload.password:
+        admin.password_hash = hash_password(payload.password)
+
+    if payload.role is not None:
+        admin.role = normalize_role(payload.role)
+
+    if payload.is_active is not None:
+        admin.is_active = 1 if payload.is_active else 0
+
+    db.commit()
+    db.refresh(admin)
+
+    return {
+        "ok": True,
+        "admin": admin_to_dict(admin),
     }
