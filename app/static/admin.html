@@ -3,128 +3,268 @@
 <head>
 <meta charset="UTF-8">
 <title>后台管理</title>
-
 <style>
-body { font-family: Arial; padding:20px; }
-
-table {
-  width:100%;
-  border-collapse:collapse;
-}
-
-th,td {
-  padding:10px;
-  border-bottom:1px solid #ddd;
-}
-
-.pending { background:#fff7ed; }
-.need-action { background:#fef2f2; }
-
-button {
-  padding:6px 10px;
-  cursor:pointer;
-}
+body{font-family:Arial;padding:24px;background:#f5f6fa;color:#0f172a}
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:20px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+button{background:#0f172a;color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700}
+button.gray{background:#9ca3af}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}
+th{background:#f3f4f6}
+.pending{background:#fff7ed}
+.need{background:#fef2f2}
+.ok{color:#047857;font-weight:700}
+.warn{color:#b45309;font-weight:700}
+.danger{color:#b91c1c;font-weight:700}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+input,select{padding:9px 10px;border:1px solid #d1d5db;border-radius:8px}
 </style>
 </head>
 
 <body>
 
-<h2>订单管理</h2>
+<div class="card">
+  <h2>后台管理</h2>
+  <div class="toolbar">
+    <button onclick="loadOrders()">刷新订单</button>
+    <button onclick="selectPending()">选择待处理订单</button>
+    <button onclick="batchConfirm()">批量确认收款并发货</button>
+    <button class="gray" onclick="logout()">退出登录</button>
+  </div>
+  <div id="meBox"></div>
+</div>
 
-<button onclick="batchPay()">批量确认收款</button>
+<div class="card">
+  <h3>订单列表</h3>
 
-<table id="table">
-<thead>
-<tr>
-<th><input type="checkbox" onclick="toggleAll(this)"></th>
-<th>订单号</th>
-<th>邮箱</th>
-<th>状态</th>
-<th>操作</th>
-</tr>
-</thead>
+  <div class="toolbar">
+    <input id="searchInput" placeholder="搜索订单号 / 邮箱 / 产品" oninput="renderOrders()">
+    <select id="statusFilter" onchange="renderOrders()">
+      <option value="">全部订单</option>
+      <option value="pending">待处理</option>
+      <option value="paid">已支付</option>
+      <option value="delivered">已发货</option>
+    </select>
+  </div>
 
-<tbody id="tbody"></tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" onclick="toggleAll(this)"></th>
+        <th>订单号</th>
+        <th>邮箱</th>
+        <th>产品</th>
+        <th>订单状态</th>
+        <th>支付状态</th>
+        <th>发货状态</th>
+        <th>发货内容</th>
+        <th>时间</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="orderBody"></tbody>
+  </table>
+
+  <div id="statusBox" style="margin-top:14px;"></div>
+</div>
 
 <script>
-const API = "/admin/orders";
+const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+
+if (!token) {
+  location.href = "/static/login.html";
+}
 
 let orders = [];
 
-/* 加载订单 */
-async function load(){
-  const res = await fetch(API);
-  orders = await res.json();
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  };
+}
 
-  const tbody = document.getElementById("tbody");
-  tbody.innerHTML = "";
+function statusClass(v) {
+  v = String(v || "").toLowerCase();
+  if (["paid","completed","delivered","success"].includes(v)) return "ok";
+  if (["pending","pending_payment","waiting","unpaid"].includes(v)) return "warn";
+  return "danger";
+}
 
-  orders.forEach(o=>{
-    const tr = document.createElement("tr");
+function canConfirm(o) {
+  if (o.can_confirm === true) return true;
+  const delivery = String(o.delivery_status || "").toLowerCase();
+  return !["delivered","completed","success","sent"].includes(delivery);
+}
 
-    if(o.payment_status === "pending"){
-      tr.classList.add("need-action");
+async function checkMe() {
+  try {
+    const res = await fetch("/admin/me", {headers: authHeaders()});
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("token");
+      location.href = "/static/login.html";
+      return;
+    }
+    const data = await res.json();
+    if (data.admin) {
+      document.getElementById("meBox").innerHTML =
+        `当前管理员：<b>${data.admin.username}</b> / ${data.admin.role}`;
+    }
+  } catch(e) {
+    document.getElementById("meBox").innerHTML = `<span class="danger">登录状态检查失败</span>`;
+  }
+}
+
+async function loadOrders() {
+  const body = document.getElementById("orderBody");
+  body.innerHTML = `<tr><td colspan="10">加载中...</td></tr>`;
+
+  try {
+    const res = await fetch("/admin/orders", {headers: authHeaders()});
+
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("token");
+      location.href = "/static/login.html";
+      return;
     }
 
-    tr.innerHTML = `
-      <td><input type="checkbox" value="${o.order_no}"></td>
-      <td>${o.order_no}</td>
-      <td>${o.customer_email}</td>
-      <td>${o.payment_status}</td>
-      <td>
-        ${o.payment_status === "pending"
-          ? `<button onclick="pay('${o.order_no}')">确认收款</button>`
-          : "已完成"}
-      </td>
+    const data = await res.json();
+
+    // 兼容两种格式：{items:[...]} 或 [...]
+    orders = Array.isArray(data) ? data : (data.items || []);
+
+    renderOrders();
+
+  } catch(e) {
+    body.innerHTML = `<tr><td colspan="10" class="danger">加载失败：${e.message}</td></tr>`;
+  }
+}
+
+function renderOrders() {
+  const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+  const filter = document.getElementById("statusFilter").value;
+  const body = document.getElementById("orderBody");
+
+  let list = orders.filter(o => {
+    const text = `${o.order_no || ""} ${o.customer_email || ""} ${o.product_code || ""}`.toLowerCase();
+    if (keyword && !text.includes(keyword)) return false;
+
+    if (filter === "pending") {
+      return canConfirm(o);
+    }
+
+    if (filter === "paid") {
+      return String(o.payment_status || "").toLowerCase() === "paid";
+    }
+
+    if (filter === "delivered") {
+      return String(o.delivery_status || "").toLowerCase() === "delivered";
+    }
+
+    return true;
+  });
+
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="10">暂无订单</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = list.map(o => {
+    const rowClass = canConfirm(o) ? "need" : "";
+    const disabled = canConfirm(o) ? "" : "disabled";
+    const btn = canConfirm(o)
+      ? `<button onclick="confirmOne('${o.order_no}')">确认收款并发货</button>`
+      : `<button class="gray" disabled>已发货</button>`;
+
+    return `
+      <tr class="${rowClass}">
+        <td><input type="checkbox" class="orderCheck" value="${o.order_no}" ${disabled}></td>
+        <td>${o.order_no || "-"}</td>
+        <td>${o.customer_email || "-"}</td>
+        <td>${o.product_code || "-"}</td>
+        <td class="${statusClass(o.status)}">${o.status || "-"}</td>
+        <td class="${statusClass(o.payment_status)}">${o.payment_status || "-"}</td>
+        <td class="${statusClass(o.delivery_status)}">${o.delivery_status || "-"}</td>
+        <td>${o.delivery_content || "-"}</td>
+        <td>${o.created_at || "-"}</td>
+        <td>${btn}</td>
+      </tr>
     `;
-
-    tbody.appendChild(tr);
-  });
+  }).join("");
 }
 
-/* 单个 */
-async function pay(id){
-  await fetch("/admin/orders/batch_pay",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify([id])
+async function confirmOne(orderNo) {
+  if (!confirm("确认收款并发货：" + orderNo + " ?")) return;
+
+  const res = await fetch("/admin/orders/confirm-paid", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({order_no: orderNo})
   });
 
-  load();
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.detail || "处理失败");
+    return;
+  }
+
+  alert("处理成功");
+  loadOrders();
 }
 
-/* 批量 */
-async function batchPay(){
-  const checked = document.querySelectorAll("tbody input:checked");
+async function batchConfirm() {
+  const ids = Array.from(document.querySelectorAll(".orderCheck:checked")).map(i => i.value);
 
-  const ids = Array.from(checked).map(i=>i.value);
-
-  if(ids.length===0){
+  if (!ids.length) {
     alert("请选择订单");
     return;
   }
 
-  await fetch("/admin/orders/batch_pay",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(ids)
+  if (!confirm(`确认批量处理 ${ids.length} 个订单？`)) return;
+
+  const res = await fetch("/admin/orders/confirm-paid-bulk", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({order_nos: ids})
   });
 
-  load();
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.detail || "批量处理失败");
+    return;
+  }
+
+  document.getElementById("statusBox").innerHTML =
+    `<span class="ok">成功：${data.success_count}</span>，<span class="danger">失败：${data.failed_count}</span>`;
+
+  loadOrders();
 }
 
-/* 全选 */
-function toggleAll(el){
-  document.querySelectorAll("tbody input").forEach(i=>{
+function toggleAll(el) {
+  document.querySelectorAll(".orderCheck:not(:disabled)").forEach(i => {
     i.checked = el.checked;
   });
 }
 
-/* 自动刷新 */
-setInterval(load,10000);
+function selectPending() {
+  document.querySelectorAll(".orderCheck").forEach(i => {
+    i.checked = !i.disabled;
+  });
+}
 
-load();
+function logout() {
+  localStorage.removeItem("admin_token");
+  localStorage.removeItem("token");
+  location.href = "/static/login.html";
+}
+
+checkMe();
+loadOrders();
+setInterval(loadOrders, 10000);
 </script>
 
 </body>
