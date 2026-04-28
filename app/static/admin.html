@@ -1,79 +1,131 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>后台管理</title>
+
 <style>
-body{font-family:Arial;background:#f6f7fb;margin:0;padding:32px 16px;color:#111827}.wrap{max-width:1240px;margin:auto}.panel{background:#fff;padding:20px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.06);margin-bottom:18px}button,input,select,textarea{padding:10px 12px;border-radius:8px;font-size:14px;box-sizing:border-box}input,select,textarea{border:1px solid #d1d5db}button{border:none;background:#111827;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#374151}button.dangerBtn{background:#b91c1c}button:disabled{background:#9ca3af;cursor:not-allowed}table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}th,td{padding:12px;border-bottom:1px solid #e5e7eb;font-size:14px;text-align:left;vertical-align:top}th{background:#f3f4f6}textarea{width:100%;min-height:110px;margin-top:10px}.ok{color:#047857;font-weight:bold}.warn{color:#b45309;font-weight:bold}.danger{color:#b91c1c;font-weight:bold}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.muted{color:#6b7280;font-size:13px}.hide{display:none}.pill{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:bold}.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+body { font-family: Arial; padding:20px; }
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td {
+  padding:10px;
+  border-bottom:1px solid #ddd;
+}
+
+.pending { background:#fff7ed; }
+.need-action { background:#fef2f2; }
+
+button {
+  padding:6px 10px;
+  cursor:pointer;
+}
 </style>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="panel">
-    <div class="toolbar">
-      <h2 style="margin:0;margin-right:auto">后台管理</h2>
-      <span id="adminBadge" class="pill">加载中</span>
-      <button onclick="logout()">退出登录</button>
-    </div>
-    <p class="muted">Token 登录 / 角色权限 / 多管理员 / 订单 / 库存 / 用户订单查询</p>
-    <button onclick="loadAll()">刷新全部</button>
-  </div>
 
-  <div class="panel"><h3>库存余量</h3><div id="stockSummary" class="grid">加载中...</div></div>
+<h2>订单管理</h2>
 
-  <div id="inventoryWritePanel" class="panel hide">
-    <h3>添加库存</h3>
-    <div class="toolbar"><select id="addProduct"><option value="GPT">GPT</option><option value="CLAUDE">CLAUDE</option><option value="VIP">VIP</option><option value="MJ">MJ</option></select><button onclick="addStock()">添加库存</button></div>
-    <textarea id="codesText" placeholder="一行一个卡密，例如：&#10;gpt-012&#10;gpt-013&#10;gpt-014"></textarea>
-    <p class="muted">manager / super_admin 可添加库存；support 只读。</p>
-  </div>
+<button onclick="batchPay()">批量确认收款</button>
 
-  <div class="panel"><h3>用户订单查询</h3><div class="toolbar"><input id="queryOrderNo" placeholder="输入订单号，例如 ORD-XXXX" style="width:300px"><button onclick="queryOrder()">查询</button></div><div id="queryResult" style="margin-top:12px">请输入订单号查询。</div></div>
+<table id="table">
+<thead>
+<tr>
+<th><input type="checkbox" onclick="toggleAll(this)"></th>
+<th>订单号</th>
+<th>邮箱</th>
+<th>状态</th>
+<th>操作</th>
+</tr>
+</thead>
 
-  <div class="panel">
-    <h3>订单列表</h3>
-    <table><thead><tr><th>订单号</th><th>邮箱</th><th>产品</th><th>订单状态</th><th>支付状态</th><th>发货状态</th><th>发货内容</th><th>时间</th><th>操作</th></tr></thead><tbody id="ordersBody"><tr><td colspan="9">加载中...</td></tr></tbody></table>
-  </div>
+<tbody id="tbody"></tbody>
+</table>
 
-  <div id="adminsPanel" class="panel hide">
-    <h3>多管理员系统</h3>
-    <p class="muted">只有 super_admin 可以创建、改密码、禁用管理员。</p>
-    <div class="row2">
-      <input id="newAdminUsername" placeholder="新管理员账号">
-      <input id="newAdminPassword" type="password" placeholder="新管理员密码，至少 6 位">
-      <select id="newAdminRole"><option value="support">客服只读 support</option><option value="manager">运营管理员 manager</option><option value="super_admin">超级管理员 super_admin</option></select>
-      <button onclick="createAdmin()">创建管理员</button>
-    </div>
-    <div style="margin-top:16px"><table><thead><tr><th>ID</th><th>账号</th><th>角色</th><th>状态</th><th>最后登录</th><th>操作</th></tr></thead><tbody id="adminsBody"><tr><td colspan="6">加载中...</td></tr></tbody></table></div>
-  </div>
-</div>
 <script>
-const API_BASE = window.location.origin;
-const token = localStorage.getItem("admin_token");
-let currentAdmin = JSON.parse(localStorage.getItem("admin_info") || "{}");
-if(!token) window.location.href = "/static/login.html";
-function authHeaders(extra={}){ return {"Authorization":"Bearer " + token, ...extra}; }
-function hasPerm(p){ return (currentAdmin.permissions || []).includes(p); }
-function logout(){ localStorage.removeItem("admin_token"); localStorage.removeItem("admin_info"); window.location.href="/static/login.html"; }
-function normalize(v){ return String(v || "").toLowerCase(); }
-function safe(v){ return v===null||v===undefined||v==="" ? "-" : String(v).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
-function statusClass(v){ const s=normalize(v); if(["paid","completed","delivered","success","finished","active"].includes(s)) return "ok"; if(["failed","cancelled","canceled","error","disabled"].includes(s)) return "danger"; return "warn"; }
-async function parseJsonSafe(res){ const text=await res.text(); try{return text?JSON.parse(text):{}}catch{return {raw:text}} }
-function getError(data){ if(typeof data?.detail==="string") return data.detail; if(data?.detail) return JSON.stringify(data.detail); return data?.raw || data?.error || JSON.stringify(data || {}); }
-async function apiFetch(url, options={}){ const res=await fetch(url,{...options,headers:{...authHeaders(options.headers||{})}}); const data=await parseJsonSafe(res); if(res.status===401){ logout(); return; } if(!res.ok) throw new Error(getError(data)); return data; }
-async function loadMe(){ const data=await apiFetch(`${API_BASE}/admin/me`); currentAdmin=data.admin; localStorage.setItem("admin_info", JSON.stringify(currentAdmin)); document.getElementById("adminBadge").innerText=`${currentAdmin.username} / ${currentAdmin.role_name}`; document.getElementById("inventoryWritePanel").classList.toggle("hide", !hasPerm("inventory:write")); document.getElementById("adminsPanel").classList.toggle("hide", !hasPerm("admins:manage")); }
-async function loadAll(){ try{ await loadMe(); await loadStock(); await loadOrders(); if(hasPerm("admins:manage")) await loadAdmins(); }catch(e){ alert(e.message); } }
-async function loadStock(){ const box=document.getElementById("stockSummary"); box.innerHTML="加载中..."; const res=await fetch(`${API_BASE}/inventory/stats`); const data=await parseJsonSafe(res); if(!res.ok) throw new Error(getError(data)); box.innerHTML=(data.items||[]).map(i=>`<div class="card"><strong>${safe(i.product_code)}</strong><div>可用：<span class="${Number(i.available)>0?'ok':'danger'}">${safe(i.available)}</span></div><div>总数：${safe(i.total)}</div><div>已用：${safe(i.used)}</div></div>`).join(""); }
-async function addStock(){ if(!hasPerm("inventory:write")){ alert("权限不足"); return; } const product=document.getElementById("addProduct").value; const codes=document.getElementById("codesText").value.trim(); if(!codes){alert("请输入卡密");return;} const data=await apiFetch(`${API_BASE}/inventory/add`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({product_code:product,codes})}); alert(`添加成功：${data.inserted} 条`); document.getElementById("codesText").value=""; await loadStock(); }
-async function loadOrders(){ const tbody=document.getElementById("ordersBody"); tbody.innerHTML=`<tr><td colspan="9">加载中...</td></tr>`; const data=await apiFetch(`${API_BASE}/admin/orders`); const items=data.items||[]; if(!items.length){ tbody.innerHTML=`<tr><td colspan="9">暂无订单</td></tr>`; return; } tbody.innerHTML=items.map(o=>{ const delivered=["delivered","completed","sent","success"].includes(normalize(o.delivery_status)); const canConfirm=hasPerm("orders:confirm") && !delivered && o.can_confirm; const orderNo=safe(o.order_no); return `<tr><td>${orderNo}</td><td>${safe(o.customer_email)}</td><td>${safe(o.product_code)}</td><td class="${statusClass(o.status)}">${safe(o.status)}</td><td class="${statusClass(o.payment_status)}">${safe(o.payment_status)}</td><td class="${statusClass(o.delivery_status)}">${safe(o.delivery_status)}</td><td>${safe(o.delivery_content)}</td><td>${safe(o.created_at)}</td><td><button ${canConfirm?"":"disabled"} onclick="confirmPaid('${orderNo}')">${delivered?"已发货":(canConfirm?"确认收款并发货":"无权限/不可操作")}</button></td></tr>`; }).join(""); }
-async function confirmPaid(orderNo){ if(!confirm(`确认已收款并发货？\n订单号：${orderNo}`)) return; const data=await apiFetch(`${API_BASE}/admin/orders/confirm-paid`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_no:orderNo})}); alert("发货成功：" + (data.delivery_content || data.result?.content || data.msg)); await loadAll(); }
-async function queryOrder(){ const orderNo=document.getElementById("queryOrderNo").value.trim(); const box=document.getElementById("queryResult"); if(!orderNo){alert("请输入订单号");return;} box.innerHTML="查询中..."; const res=await fetch(`${API_BASE}/orders/${encodeURIComponent(orderNo)}`); const data=await parseJsonSafe(res); if(!res.ok){ box.innerHTML=`<span class="danger">查询失败：${safe(getError(data))}</span>`; return;} box.innerHTML=`<div>订单号：${safe(data.order_no)}</div><div>邮箱：${safe(data.customer_email)}</div><div>产品：${safe(data.product_code)}</div><div>订单状态：<span class="${statusClass(data.status)}">${safe(data.status)}</span></div><div>支付状态：<span class="${statusClass(data.payment_status)}">${safe(data.payment_status)}</span></div><div>发货状态：<span class="${statusClass(data.delivery_status)}">${safe(data.delivery_status)}</span></div><div>发货内容：${safe(data.delivery_content)}</div><div>时间：${safe(data.created_at)}</div>`; }
-async function loadAdmins(){ const tbody=document.getElementById("adminsBody"); tbody.innerHTML=`<tr><td colspan="6">加载中...</td></tr>`; const data=await apiFetch(`${API_BASE}/admin/admins`); tbody.innerHTML=(data.items||[]).map(a=>`<tr><td>${a.id}</td><td>${safe(a.username)}</td><td>${safe(a.role_name)}<br><span class="muted">${safe(a.role)}</span></td><td class="${a.is_active?'ok':'danger'}">${a.is_active?'启用':'禁用'}</td><td>${safe(a.last_login_at)}</td><td><button class="secondary" onclick="resetAdminPassword(${a.id})">改密码</button> <button class="secondary" onclick="changeAdminRole(${a.id}, '${a.role}')">改角色</button> <button class="dangerBtn" onclick="toggleAdmin(${a.id}, ${a.is_active})" ${a.id===currentAdmin.id?'disabled':''}>${a.is_active?'禁用':'启用'}</button></td></tr>`).join(""); }
-async function createAdmin(){ const username=document.getElementById("newAdminUsername").value.trim(); const password=document.getElementById("newAdminPassword").value; const role=document.getElementById("newAdminRole").value; const data=await apiFetch(`${API_BASE}/admin/admins`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password,role})}); alert("创建成功："+data.admin.username); document.getElementById("newAdminUsername").value=""; document.getElementById("newAdminPassword").value=""; await loadAdmins(); }
-async function resetAdminPassword(id){ const password=prompt("输入新密码，至少 6 位"); if(!password) return; await apiFetch(`${API_BASE}/admin/admins/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})}); alert("密码已修改"); }
-async function changeAdminRole(id, oldRole){ const role=prompt("输入新角色：super_admin / manager / support", oldRole); if(!role) return; await apiFetch(`${API_BASE}/admin/admins/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({role})}); alert("角色已修改"); await loadAdmins(); }
-async function toggleAdmin(id, isActive){ if(!confirm(isActive?"确认禁用这个管理员？":"确认启用这个管理员？")) return; await apiFetch(`${API_BASE}/admin/admins/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({is_active:!isActive})}); await loadAdmins(); }
-loadAll();
+const API = "/admin/orders";
+
+let orders = [];
+
+/* 加载订单 */
+async function load(){
+  const res = await fetch(API);
+  orders = await res.json();
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  orders.forEach(o=>{
+    const tr = document.createElement("tr");
+
+    if(o.payment_status === "pending"){
+      tr.classList.add("need-action");
+    }
+
+    tr.innerHTML = `
+      <td><input type="checkbox" value="${o.order_no}"></td>
+      <td>${o.order_no}</td>
+      <td>${o.customer_email}</td>
+      <td>${o.payment_status}</td>
+      <td>
+        ${o.payment_status === "pending"
+          ? `<button onclick="pay('${o.order_no}')">确认收款</button>`
+          : "已完成"}
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* 单个 */
+async function pay(id){
+  await fetch("/admin/orders/batch_pay",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify([id])
+  });
+
+  load();
+}
+
+/* 批量 */
+async function batchPay(){
+  const checked = document.querySelectorAll("tbody input:checked");
+
+  const ids = Array.from(checked).map(i=>i.value);
+
+  if(ids.length===0){
+    alert("请选择订单");
+    return;
+  }
+
+  await fetch("/admin/orders/batch_pay",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(ids)
+  });
+
+  load();
+}
+
+/* 全选 */
+function toggleAll(el){
+  document.querySelectorAll("tbody input").forEach(i=>{
+    i.checked = el.checked;
+  });
+}
+
+/* 自动刷新 */
+setInterval(load,10000);
+
+load();
 </script>
+
 </body>
 </html>
