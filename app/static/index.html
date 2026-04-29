@@ -5,33 +5,479 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI会员购买中心</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(circle at top left,rgba(99,102,241,.28),transparent 30%),radial-gradient(circle at top right,rgba(236,72,153,.18),transparent 28%),#0f172a;color:#f8fafc}.page{max-width:1180px;margin:0 auto;padding:24px 16px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:44px}.logo{font-size:22px;font-weight:900}.badge{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;font-size:14px}.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:26px;align-items:center;margin-bottom:34px}.hero-card,.panel,.product-card,.mini-card,.step,.faq-item{background:rgba(15,23,42,.78);border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 60px rgba(0,0,0,.28)}.hero-card{padding:34px;border-radius:28px}.tag{display:inline-block;padding:8px 12px;border-radius:999px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);font-size:13px;font-weight:800;margin-bottom:16px}h1{font-size:48px;line-height:1.12;margin:0;letter-spacing:-1.5px}.hero p{color:#cbd5e1;font-size:17px;line-height:1.8}.btn{border:none;cursor:pointer;border-radius:14px;padding:14px 18px;font-size:15px;font-weight:900;color:#fff}.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);box-shadow:0 12px 32px rgba(99,102,241,.32)}.btn-secondary{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.hero-side{display:grid;gap:14px}.mini-card{padding:20px;border-radius:22px}.mini-card strong{display:block;font-size:20px;margin-bottom:8px}.mini-card span{color:#cbd5e1;font-size:14px;line-height:1.7}.section-title{margin:42px 0 16px;font-size:26px}.products{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.product-card{padding:22px;border-radius:24px;cursor:pointer;min-height:245px;display:flex;flex-direction:column;justify-content:space-between;transition:.2s}.product-card.active,.product-card:hover{transform:translateY(-4px);border-color:#8b5cf6;background:rgba(99,102,241,.16)}.product-badge{display:inline-block;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;color:#cbd5e1;margin-bottom:14px}.product-card h3{margin:0 0 8px;font-size:21px}.product-card p{margin:0;color:#cbd5e1;line-height:1.6;font-size:14px}.price{margin-top:18px;font-size:30px;font-weight:1000}.price small{font-size:13px;color:#94a3b8}.stock{margin-top:10px;font-size:13px;font-weight:800}.ok{color:#86efac}.warn{color:#fbbf24}.danger{color:#fca5a5}.buy-layout{display:grid;grid-template-columns:.95fr 1.05fr;gap:18px;align-items:start}.panel{padding:24px;border-radius:24px}label{display:block;margin:16px 0 8px;color:#e2e8f0;font-size:14px;font-weight:800}input,select{width:100%;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;outline:none;font-size:15px}select option{color:#111827}.pay-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.pay-tab{padding:12px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);text-align:center;cursor:pointer;color:#cbd5e1;font-weight:800}.pay-tab.active{background:rgba(99,102,241,.24);border-color:#8b5cf6;color:#fff}.submit-btn{width:100%;margin-top:18px;padding:15px;font-size:16px}.submit-btn:disabled{background:#64748b;cursor:not-allowed;box-shadow:none}.qr-box,.status-box{margin-top:14px;padding:18px;border-radius:20px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;line-height:1.7;word-break:break-word}.qr-box{text-align:center;min-height:160px;border-style:dashed}.qr-box img{max-width:210px;width:70%;border-radius:16px;background:#fff;padding:8px;margin:12px auto;display:block}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.step{padding:18px;border-radius:20px;color:#cbd5e1;line-height:1.7}.step b{display:inline-flex;width:30px;height:30px;border-radius:10px;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#ec4899);color:#fff;margin-bottom:10px}.faq{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.faq-item{padding:18px;border-radius:20px}.faq-item p{margin:0;color:#cbd5e1;line-height:1.7;font-size:14px}.footer{margin-top:40px;text-align:center;color:#94a3b8;font-size:13px}@media(max-width:960px){.hero,.buy-layout{grid-template-columns:1fr}.products{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}h1{font-size:38px}}@media(max-width:560px){.products,.steps,.faq{grid-template-columns:1fr}.pay-tabs{grid-template-columns:1fr}h1{font-size:32px}.hero-card{padding:24px}}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(circle at top left,rgba(99,102,241,.28),transparent 30%),radial-gradient(circle at top right,rgba(236,72,153,.18),transparent 28%),#0f172a;color:#f8fafc}
+.page{max-width:1180px;margin:0 auto;padding:24px 16px 70px}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:44px}
+.logo{font-size:22px;font-weight:900}
+.badge{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;font-size:14px}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:26px;align-items:center;margin-bottom:34px}
+.hero-card,.panel,.product-card,.mini-card,.step,.faq-item{background:rgba(15,23,42,.78);border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 60px rgba(0,0,0,.28)}
+.hero-card{padding:34px;border-radius:28px}
+.tag{display:inline-block;padding:8px 12px;border-radius:999px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);font-size:13px;font-weight:800;margin-bottom:16px}
+h1{font-size:48px;line-height:1.12;margin:0;letter-spacing:-1.5px}
+.hero p{color:#cbd5e1;font-size:17px;line-height:1.8}
+.btn{border:none;cursor:pointer;border-radius:14px;padding:14px 18px;font-size:15px;font-weight:900;color:#fff}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);box-shadow:0 12px 32px rgba(99,102,241,.32)}
+.btn-secondary{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+.hero-side{display:grid;gap:14px}
+.mini-card{padding:20px;border-radius:22px}
+.mini-card strong{display:block;font-size:20px;margin-bottom:8px}
+.mini-card span{color:#cbd5e1;font-size:14px;line-height:1.7}
+.section-title{margin:42px 0 16px;font-size:26px}
+.category-tabs{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.category-tab{width:auto;padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#cbd5e1;cursor:pointer;font-weight:800}
+.category-tab.active{background:rgba(99,102,241,.26);border-color:#8b5cf6;color:#fff}
+.products{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.product-card{padding:22px;border-radius:24px;cursor:pointer;min-height:260px;display:flex;flex-direction:column;justify-content:space-between;transition:.2s}
+.product-card.active,.product-card:hover{transform:translateY(-4px);border-color:#8b5cf6;background:rgba(99,102,241,.16)}
+.product-badge{display:inline-block;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px;color:#cbd5e1;margin-bottom:14px}
+.product-card h3{margin:0 0 8px;font-size:20px}
+.product-card p{margin:0;color:#cbd5e1;line-height:1.6;font-size:14px}
+.price{margin-top:18px;font-size:30px;font-weight:1000}
+.price small{font-size:13px;color:#94a3b8}
+.stock{margin-top:10px;font-size:13px;font-weight:800}
+.ok{color:#86efac}.warn{color:#fbbf24}.danger{color:#fca5a5}
+.buy-layout{display:grid;grid-template-columns:.95fr 1.05fr;gap:18px;align-items:start}
+.panel{padding:24px;border-radius:24px}
+label{display:block;margin:16px 0 8px;color:#e2e8f0;font-size:14px;font-weight:800}
+input,select{width:100%;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;outline:none;font-size:15px}
+select option{color:#111827}
+.pay-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.pay-tab{padding:12px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);text-align:center;cursor:pointer;color:#cbd5e1;font-weight:800}
+.pay-tab.active{background:rgba(99,102,241,.24);border-color:#8b5cf6;color:#fff}
+.submit-btn{width:100%;margin-top:18px;padding:15px;font-size:16px}
+.submit-btn:disabled{background:#64748b;cursor:not-allowed;box-shadow:none}
+.qr-box,.status-box{margin-top:14px;padding:18px;border-radius:20px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;line-height:1.7;word-break:break-word}
+.qr-box{text-align:center;min-height:160px;border-style:dashed}
+.qr-box img{max-width:210px;width:70%;border-radius:16px;background:#fff;padding:8px;margin:12px auto;display:block}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.step{padding:18px;border-radius:20px;color:#cbd5e1;line-height:1.7}
+.step b{display:inline-flex;width:30px;height:30px;border-radius:10px;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#ec4899);color:#fff;margin-bottom:10px}
+.faq{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.faq-item{padding:18px;border-radius:20px}
+.faq-item p{margin:0;color:#cbd5e1;line-height:1.7;font-size:14px}
+.footer{margin-top:40px;text-align:center;color:#94a3b8;font-size:13px}
+@media(max-width:960px){.hero,.buy-layout{grid-template-columns:1fr}.products{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}h1{font-size:38px}}
+@media(max-width:560px){.products,.steps,.faq{grid-template-columns:1fr}.pay-tabs{grid-template-columns:1fr}h1{font-size:32px}.hero-card{padding:24px}}
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="nav"><div class="logo">AI会员购买中心</div><div class="badge">自动发货 · 微信 / 支付宝 / USDT</div></div>
-  <section class="hero"><div class="hero-card"><div class="tag">● 在线库存实时检测</div><h1>ChatGPT / Claude / MJ 会员快速购买</h1><p>选择商品、填写邮箱、创建订单，付款后由后台确认并自动发货。适合需要快速开通 AI 工具会员的用户。</p><div class="hero-actions"><button class="btn btn-primary" onclick="scrollToBuy()">立即购买</button><button class="btn btn-secondary" onclick="scrollToQuery()">查询订单</button></div></div><div class="hero-side"><div class="mini-card"><strong>自动发货</strong><span>付款确认后系统自动从库存发货到邮箱。</span></div><div class="mini-card"><strong>多种支付</strong><span>支持微信、支付宝、USDT/TRC20。</span></div><div class="mini-card"><strong>在线客服</strong><span>右下角可实时咨询订单、付款和售后问题。</span></div></div></section>
-  <h2 class="section-title">选择产品</h2>
-  <section class="products">
-    <div class="product-card active" data-code="GPT" onclick="selectProduct('GPT')"><div><span class="product-badge">热门推荐</span><h3>ChatGPT Plus</h3><p>适合办公、写作、代码、学习。</p></div><div><div class="price">¥180 <small>/ 月</small></div><div class="stock" id="stock-GPT">库存加载中...</div></div></div>
-    <div class="product-card" data-code="CLAUDE" onclick="selectProduct('CLAUDE')"><div><span class="product-badge">长文写作</span><h3>Claude Pro</h3><p>适合文档、论文、总结、内容处理。</p></div><div><div class="price">¥200 <small>/ 月</small></div><div class="stock" id="stock-CLAUDE">库存加载中...</div></div></div>
-    <div class="product-card" data-code="VIP" onclick="selectProduct('VIP')"><div><span class="product-badge">综合套餐</span><h3>AI会员 VIP</h3><p>适合多个 AI 服务组合使用。</p></div><div><div class="price">¥300 <small>/ 月</small></div><div class="stock" id="stock-VIP">库存加载中...</div></div></div>
-    <div class="product-card" data-code="MJ" onclick="selectProduct('MJ')"><div><span class="product-badge">AI绘画</span><h3>Midjourney</h3><p>适合图片生成、设计素材、创意绘图。</p></div><div><div class="price">¥150 <small>/ 月</small></div><div class="stock" id="stock-MJ">库存加载中...</div></div></div>
+  <div class="nav"><div class="logo">AI会员购买中心</div><div class="badge">多产品线 · 多套餐 · 自动发货</div></div>
+
+  <section class="hero">
+    <div class="hero-card">
+      <div class="tag">● 在线库存实时检测</div>
+      <h1>AI 会员多套餐购买中心</h1>
+      <p>覆盖 ChatGPT、Claude、Midjourney、Gemini、Perplexity、Cursor 等热门 AI 工具。支持共享版、独享版、季卡、团队版等细分套餐。</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="scrollToBuy()">立即购买</button>
+        <button class="btn btn-secondary" onclick="scrollToQuery()">查询订单</button>
+      </div>
+    </div>
+    <div class="hero-side">
+      <div class="mini-card"><strong>产品线更完整</strong><span>同一个产品支持多个套餐，方便用户按预算选择。</span></div>
+      <div class="mini-card"><strong>库存独立管理</strong><span>每个套餐对应独立 product_code，后台可单独补货。</span></div>
+      <div class="mini-card"><strong>支持人工确认发货</strong><span>微信/支付宝付款后后台确认，系统自动发货。</span></div>
+    </div>
   </section>
+
+  <h2 class="section-title">选择产品线和套餐</h2>
+  <div class="category-tabs" id="categoryTabs"><button class="category-tab active" data-category="ChatGPT" onclick="selectCategory('ChatGPT')">ChatGPT</button><button class="category-tab " data-category="Claude" onclick="selectCategory('Claude')">Claude</button><button class="category-tab " data-category="Midjourney" onclick="selectCategory('Midjourney')">Midjourney</button><button class="category-tab " data-category="更多AI工具" onclick="selectCategory('更多AI工具')">更多AI工具</button><button class="category-tab " data-category="组合套餐" onclick="selectCategory('组合套餐')">组合套餐</button></div>
+  <section class="products" id="products"></section>
+
   <h2 class="section-title" id="buyArea">提交订单</h2>
-  <section class="buy-layout"><div class="panel"><h2>购买信息</h2><label>当前选择</label><input id="selectedProductText" value="ChatGPT Plus / ¥180" disabled><label>接收邮箱</label><input id="email" placeholder="请输入你的邮箱，用于接收发货信息"><label>支付方式</label><div class="pay-tabs"><div class="pay-tab active" data-method="wechat" onclick="selectPay('wechat')">微信支付</div><div class="pay-tab" data-method="alipay" onclick="selectPay('alipay')">支付宝</div><div class="pay-tab" data-method="usdt" onclick="selectPay('usdt')">USDT</div></div><button class="btn btn-primary submit-btn" id="buyBtn" onclick="buy()">立即创建订单</button><div class="status-box" id="statusBox">请选择产品并填写邮箱，创建订单后请按提示付款。</div></div><div class="panel"><h3>付款二维码 / 支付信息</h3><div class="qr-box" id="qrBox"></div><div class="status-box"><strong>付款说明</strong><br>微信/支付宝付款后，请保留订单号。后台确认后会自动发货到邮箱。</div></div></section>
-  <h2 class="section-title">购买流程</h2><section class="steps"><div class="step"><b>1</b><br>选择需要购买的 AI 会员产品。</div><div class="step"><b>2</b><br>填写邮箱并创建订单。</div><div class="step"><b>3</b><br>选择微信、支付宝或 USDT 付款。</div><div class="step"><b>4</b><br>确认后系统自动发货。</div></section>
-  <h2 class="section-title" id="queryArea">订单查询</h2><section class="buy-layout"><div class="panel"><h3>查询订单状态</h3><label>订单号</label><input id="queryOrderNo" placeholder="请输入订单号，例如 ORD-xxxxxx"><button class="btn btn-secondary submit-btn" onclick="queryOrder()">查询订单</button><div class="status-box" id="queryResult">输入订单号后可查看订单状态。</div></div><div class="panel"><h3>常见问题</h3><div class="faq"><div class="faq-item"><strong>多久发货？</strong><p>付款确认后会自动发货。请保留订单号方便查询。</p></div><div class="faq-item"><strong>支持哪些支付？</strong><p>支持微信、支付宝、USDT/TRC20。</p></div><div class="faq-item"><strong>邮箱写错怎么办？</strong><p>请尽快联系客服并提供订单号。</p></div><div class="faq-item"><strong>库存不足怎么办？</strong><p>库存不足时请稍后再试，或联系客服补货。</p></div></div></div></section>
+  <section class="buy-layout">
+    <div class="panel">
+      <h2>购买信息</h2>
+      <label>当前选择</label>
+      <input id="selectedProductText" disabled>
+      <label>接收邮箱</label>
+      <input id="email" placeholder="请输入你的邮箱，用于接收发货信息">
+      <label>支付方式</label>
+      <div class="pay-tabs">
+        <div class="pay-tab active" data-method="wechat" onclick="selectPay('wechat')">微信支付</div>
+        <div class="pay-tab" data-method="alipay" onclick="selectPay('alipay')">支付宝</div>
+        <div class="pay-tab" data-method="usdt" onclick="selectPay('usdt')">USDT</div>
+      </div>
+      <button class="btn btn-primary submit-btn" id="buyBtn" onclick="buy()">立即创建订单</button>
+      <div class="status-box" id="statusBox">请选择套餐并填写邮箱，创建订单后请按提示付款。</div>
+    </div>
+    <div class="panel">
+      <h3>付款二维码 / 支付信息</h3>
+      <div class="qr-box" id="qrBox"></div>
+      <div class="status-box"><strong>付款说明</strong><br>微信/支付宝付款后，请保留订单号。后台确认后会自动发货到邮箱。</div>
+    </div>
+  </section>
+
+  <h2 class="section-title">购买流程</h2>
+  <section class="steps">
+    <div class="step"><b>1</b><br>选择产品线和套餐。</div>
+    <div class="step"><b>2</b><br>填写邮箱并创建订单。</div>
+    <div class="step"><b>3</b><br>扫码付款并保留订单号。</div>
+    <div class="step"><b>4</b><br>确认后系统自动发货。</div>
+  </section>
+
+  <h2 class="section-title" id="queryArea">订单查询</h2>
+  <section class="buy-layout">
+    <div class="panel">
+      <h3>查询订单状态</h3>
+      <label>订单号</label>
+      <input id="queryOrderNo" placeholder="请输入订单号，例如 ORD-xxxxxx">
+      <button class="btn btn-secondary submit-btn" onclick="queryOrder()">查询订单</button>
+      <div class="status-box" id="queryResult">输入订单号后可查看订单状态。</div>
+    </div>
+    <div class="panel">
+      <h3>常见问题</h3>
+      <div class="faq">
+        <div class="faq-item"><strong>共享版和独享版区别？</strong><p>共享版价格更低，适合轻度使用；独享版稳定性更高，适合长期办公学习。</p></div>
+        <div class="faq-item"><strong>多久发货？</strong><p>付款确认后会自动发货。请保留订单号方便查询。</p></div>
+        <div class="faq-item"><strong>支持哪些支付？</strong><p>支持微信、支付宝、USDT/TRC20。</p></div>
+        <div class="faq-item"><strong>库存不足怎么办？</strong><p>库存不足时请稍后再试，或联系客服补货。</p></div>
+      </div>
+    </div>
+  </section>
+
   <div class="footer">© AI会员购买中心 · 请合理合规使用相关服务</div>
 </div>
+
 <script>
-const PRODUCT_MAP={GPT:{name:"ChatGPT Plus",price:180,desc:"ChatGPT Plus / ¥180"},CLAUDE:{name:"Claude Pro",price:200,desc:"Claude Pro / ¥200"},VIP:{name:"AI会员 VIP",price:300,desc:"AI会员 VIP / ¥300"},MJ:{name:"Midjourney",price:150,desc:"Midjourney / ¥150"}};let selectedProduct="GPT",selectedPayMethod="wechat",stockMap={};const buyBtn=document.getElementById("buyBtn"),statusBox=document.getElementById("statusBox"),qrBox=document.getElementById("qrBox"),selectedProductText=document.getElementById("selectedProductText");function scrollToBuy(){document.getElementById("buyArea").scrollIntoView({behavior:"smooth"})}function scrollToQuery(){document.getElementById("queryArea").scrollIntoView({behavior:"smooth"})}function selectProduct(code){selectedProduct=code;document.querySelectorAll(".product-card").forEach(c=>c.classList.remove("active"));document.querySelector(`.product-card[data-code="${code}"]`).classList.add("active");selectedProductText.value=PRODUCT_MAP[code].desc;updateBuyButton();updateQR()}function selectPay(method){selectedPayMethod=method;document.querySelectorAll(".pay-tab").forEach(t=>t.classList.remove("active"));document.querySelector(`.pay-tab[data-method="${method}"]`).classList.add("active");updateQR()}async function loadStock(){try{const res=await fetch("/inventory/stats");const data=await res.json();stockMap={};(data.items||[]).forEach(i=>{stockMap[i.product_code]=i.available||0});Object.keys(PRODUCT_MAP).forEach(code=>{const el=document.getElementById("stock-"+code);const stock=stockMap[code]||0;if(stock<=0)el.innerHTML=`<span class="danger">暂时缺货</span>`;else if(stock<=3)el.innerHTML=`<span class="warn">库存紧张：${stock}</span>`;else el.innerHTML=`<span class="ok">库存充足：${stock}</span>`});updateBuyButton()}catch(e){Object.keys(PRODUCT_MAP).forEach(code=>{document.getElementById("stock-"+code).innerHTML=`<span class="danger">库存加载失败</span>`})}}function updateBuyButton(){const stock=stockMap[selectedProduct]||0;if(stock<=0){buyBtn.disabled=true;buyBtn.innerText="当前商品暂时缺货"}else{buyBtn.disabled=false;buyBtn.innerText="立即创建订单"}}function updateQR(){const p=PRODUCT_MAP[selectedProduct];if(selectedPayMethod==="wechat")qrBox.innerHTML=`<strong>微信支付</strong><p>当前商品：${p.name}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/wechat.png" alt="微信支付二维码"><p>创建订单后，请使用微信扫码付款。</p>`;if(selectedPayMethod==="alipay")qrBox.innerHTML=`<strong>支付宝</strong><p>当前商品：${p.name}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/alipay.png" alt="支付宝二维码"><p>创建订单后，请使用支付宝扫码付款。</p>`;if(selectedPayMethod==="usdt")qrBox.innerHTML=`<strong>USDT / TRC20</strong><p>当前商品：${p.name}</p><p>点击创建订单后，系统会生成 USDT 支付地址。</p>`}function isValidEmail(email){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}async function buy(){const email=document.getElementById("email").value.trim();if(!email){alert("请输入邮箱");return}if(!isValidEmail(email)){alert("邮箱格式不正确");return}buyBtn.disabled=true;buyBtn.innerText="订单创建中...";statusBox.innerHTML="订单创建中，请不要重复点击...";try{const res=await fetch("/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({product_code:selectedProduct,customer_email:email})});const data=await res.json();if(!res.ok)throw new Error(data.detail||"创建订单失败");const orderNo=data.order_no;if(selectedPayMethod==="wechat"||selectedPayMethod==="alipay"){qrBox.innerHTML=`<strong>${selectedPayMethod==="wechat"?"微信支付":"支付宝"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${PRODUCT_MAP[selectedProduct].price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认发货。</p>`;statusBox.innerHTML=`<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>商品：${PRODUCT_MAP[selectedProduct].name}<br>金额：¥${PRODUCT_MAP[selectedProduct].price}<br>请扫码付款，并保留订单号。</div>`;buyBtn.disabled=false;buyBtn.innerText="继续创建订单";return}const payRes=await fetch("/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_no:orderNo,pay_currency:"usdttrc20"})});const payData=await payRes.json();if(!payRes.ok)throw new Error(payData.detail||"USDT支付创建失败");qrBox.innerHTML=`<strong>USDT / TRC20 支付</strong><p>订单号：${orderNo}</p><img src="${payData.qr_code_url}" alt="USDT支付二维码"><p>${payData.pay_address||""}</p>`;statusBox.innerHTML=`<div class="ok"><strong>USDT支付订单已创建</strong><br>订单号：${orderNo}<br>请按页面显示的地址完成支付。</div>`;buyBtn.disabled=false;buyBtn.innerText="继续创建订单"}catch(e){statusBox.innerHTML=`<span class="danger">${e.message}</span>`;buyBtn.disabled=false;updateBuyButton()}}async function queryOrder(){const orderNo=document.getElementById("queryOrderNo").value.trim(),queryResult=document.getElementById("queryResult");if(!orderNo){alert("请输入订单号");return}queryResult.innerHTML="查询中...";const urls=[`/orders/${encodeURIComponent(orderNo)}`,`/orders/query?order_no=${encodeURIComponent(orderNo)}`];let lastError="订单查询失败";for(const url of urls){try{const res=await fetch(url),data=await res.json();if(!res.ok){lastError=data.detail||"查询失败";continue}queryResult.innerHTML=`<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>商品：${data.product_code||"-"}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}</div>`;return}catch(e){lastError=e.message}}queryResult.innerHTML=`<span class="danger">${lastError}</span>`}selectProduct("GPT");selectPay("wechat");loadStock();
+const PRODUCTS = [
+  {
+    "code": "GPT_SHARED_1M",
+    "category": "ChatGPT",
+    "name": "ChatGPT Plus 共享版",
+    "price": 88,
+    "period": "1个月",
+    "badge": "入门推荐",
+    "desc": "适合轻度使用，性价比高。"
+  },
+  {
+    "code": "GPT_PLUS_1M",
+    "category": "ChatGPT",
+    "name": "ChatGPT Plus 独享版",
+    "price": 180,
+    "period": "1个月",
+    "badge": "热门",
+    "desc": "独享账号，适合稳定办公、学习、写作。"
+  },
+  {
+    "code": "GPT_PLUS_3M",
+    "category": "ChatGPT",
+    "name": "ChatGPT Plus 季卡",
+    "price": 499,
+    "period": "3个月",
+    "badge": "更划算",
+    "desc": "长期使用更省心，适合稳定需求。"
+  },
+  {
+    "code": "GPT_TEAM_1M",
+    "category": "ChatGPT",
+    "name": "ChatGPT Team 席位",
+    "price": 220,
+    "period": "1个月",
+    "badge": "团队版",
+    "desc": "适合团队协作和高频使用。"
+  },
+  {
+    "code": "CLAUDE_SHARED_1M",
+    "category": "Claude",
+    "name": "Claude Pro 共享版",
+    "price": 98,
+    "period": "1个月",
+    "badge": "长文入门",
+    "desc": "适合文档阅读、总结和写作体验。"
+  },
+  {
+    "code": "CLAUDE_PRO_1M",
+    "category": "Claude",
+    "name": "Claude Pro 独享版",
+    "price": 200,
+    "period": "1个月",
+    "badge": "长文推荐",
+    "desc": "适合论文、长文、报告、内容处理。"
+  },
+  {
+    "code": "CLAUDE_PRO_3M",
+    "category": "Claude",
+    "name": "Claude Pro 季卡",
+    "price": 560,
+    "period": "3个月",
+    "badge": "稳定长期",
+    "desc": "长期长文处理需求，减少续费麻烦。"
+  },
+  {
+    "code": "MJ_BASIC_1M",
+    "category": "Midjourney",
+    "name": "Midjourney Basic",
+    "price": 120,
+    "period": "1个月",
+    "badge": "AI绘画入门",
+    "desc": "适合低频出图和基础设计。"
+  },
+  {
+    "code": "MJ_STANDARD_1M",
+    "category": "Midjourney",
+    "name": "Midjourney Standard",
+    "price": 180,
+    "period": "1个月",
+    "badge": "绘画推荐",
+    "desc": "适合设计素材、海报、创意图。"
+  },
+  {
+    "code": "MJ_PRO_1M",
+    "category": "Midjourney",
+    "name": "Midjourney Pro",
+    "price": 300,
+    "period": "1个月",
+    "badge": "高频创作",
+    "desc": "适合设计师和高频出图用户。"
+  },
+  {
+    "code": "GEMINI_PRO_1M",
+    "category": "更多AI工具",
+    "name": "Gemini Advanced",
+    "price": 99,
+    "period": "1个月",
+    "badge": "Google AI",
+    "desc": "适合多模态和搜索增强使用。"
+  },
+  {
+    "code": "PERPLEXITY_PRO_1M",
+    "category": "更多AI工具",
+    "name": "Perplexity Pro",
+    "price": 120,
+    "period": "1个月",
+    "badge": "搜索问答",
+    "desc": "适合资料检索、论文搜索、研究。"
+  },
+  {
+    "code": "CURSOR_PRO_1M",
+    "category": "更多AI工具",
+    "name": "Cursor Pro",
+    "price": 150,
+    "period": "1个月",
+    "badge": "编程助手",
+    "desc": "适合程序员 AI 编程开发。"
+  },
+  {
+    "code": "AI_BUNDLE_1M",
+    "category": "组合套餐",
+    "name": "AI全家桶月卡",
+    "price": 300,
+    "period": "1个月",
+    "badge": "组合优惠",
+    "desc": "ChatGPT / Claude / MJ 等组合套餐。"
+  }
+];
+const PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
+const CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
+let activeCategory = CATEGORIES[0];
+let selectedProduct = PRODUCTS[0].code;
+let selectedPayMethod = "wechat";
+let stockMap = {};
+
+const buyBtn = document.getElementById("buyBtn");
+const statusBox = document.getElementById("statusBox");
+const qrBox = document.getElementById("qrBox");
+const selectedProductText = document.getElementById("selectedProductText");
+
+function scrollToBuy(){document.getElementById("buyArea").scrollIntoView({behavior:"smooth"})}
+function scrollToQuery(){document.getElementById("queryArea").scrollIntoView({behavior:"smooth"})}
+
+function selectCategory(category){
+  activeCategory = category;
+  document.querySelectorAll(".category-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.category === category));
+  const first = PRODUCTS.find(p => p.category === category);
+  if(first) selectedProduct = first.code;
+  renderProducts();
+  updateSelectedProductText();
+  updateBuyButton();
+  updateQR();
+}
+
+function renderProducts(){
+  const list = PRODUCTS.filter(p => p.category === activeCategory);
+  document.getElementById("products").innerHTML = list.map(p => {
+    const stock = stockMap[p.code] || 0;
+    let stockHtml = '<span class="danger">暂时缺货</span>';
+    if(stock > 3) stockHtml = `<span class="ok">库存充足：${stock}</span>`;
+    else if(stock > 0) stockHtml = `<span class="warn">库存紧张：${stock}</span>`;
+    return `
+      <div class="product-card ${selectedProduct===p.code?'active':''}" data-code="${p.code}" onclick="selectProduct('${p.code}')">
+        <div>
+          <span class="product-badge">${p.badge}</span>
+          <h3>${p.name}</h3>
+          <p>${p.desc}</p>
+        </div>
+        <div>
+          <div class="price">¥${p.price} <small>/ ${p.period}</small></div>
+          <div class="stock" id="stock-${p.code}">${stockHtml}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function selectProduct(code){
+  selectedProduct = code;
+  document.querySelectorAll(".product-card").forEach(c => c.classList.toggle("active", c.dataset.code === code));
+  updateSelectedProductText();
+  updateBuyButton();
+  updateQR();
+}
+
+function updateSelectedProductText(){
+  const p = PRODUCT_MAP[selectedProduct];
+  selectedProductText.value = `${p.name} / ¥${p.price} / ${p.period}`;
+}
+
+function selectPay(method){
+  selectedPayMethod = method;
+  document.querySelectorAll(".pay-tab").forEach(t => t.classList.toggle("active", t.dataset.method === method));
+  updateQR();
+}
+
+async function loadStock(){
+  try{
+    const res = await fetch("/inventory/stats");
+    const data = await res.json();
+    stockMap = {};
+    (data.items || []).forEach(i => { stockMap[i.product_code] = i.available || 0; });
+    renderProducts();
+    updateBuyButton();
+  }catch(e){
+    renderProducts();
+  }
+}
+
+function updateBuyButton(){
+  const stock = stockMap[selectedProduct] || 0;
+  if(stock <= 0){
+    buyBtn.disabled = true;
+    buyBtn.innerText = "当前套餐暂时缺货";
+  }else{
+    buyBtn.disabled = false;
+    buyBtn.innerText = "立即创建订单";
+  }
+}
+
+function updateQR(){
+  const p = PRODUCT_MAP[selectedProduct];
+  if(selectedPayMethod === "wechat"){
+    qrBox.innerHTML = `<strong>微信支付</strong><p>当前套餐：${p.name}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/wechat.png" alt="微信支付二维码"><p>创建订单后，请使用微信扫码付款。</p>`;
+  }
+  if(selectedPayMethod === "alipay"){
+    qrBox.innerHTML = `<strong>支付宝</strong><p>当前套餐：${p.name}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/alipay.png" alt="支付宝二维码"><p>创建订单后，请使用支付宝扫码付款。</p>`;
+  }
+  if(selectedPayMethod === "usdt"){
+    qrBox.innerHTML = `<strong>USDT / TRC20</strong><p>当前套餐：${p.name}</p><p>点击创建订单后，系统会生成 USDT 支付地址。</p>`;
+  }
+}
+
+function isValidEmail(email){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+
+async function buy(){
+  const email = document.getElementById("email").value.trim();
+  const p = PRODUCT_MAP[selectedProduct];
+  if(!email){alert("请输入邮箱");return}
+  if(!isValidEmail(email)){alert("邮箱格式不正确");return}
+  buyBtn.disabled = true;
+  buyBtn.innerText = "订单创建中...";
+  statusBox.innerHTML = "订单创建中，请不要重复点击...";
+  try{
+    const res = await fetch("/orders", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({product_code:selectedProduct, customer_email:email})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || "创建订单失败");
+    const orderNo = data.order_no;
+    if(selectedPayMethod === "wechat" || selectedPayMethod === "alipay"){
+      qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":"支付宝"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认发货。</p>`;
+      statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>请扫码付款，并保留订单号。</div>`;
+      buyBtn.disabled = false;
+      buyBtn.innerText = "继续创建订单";
+      return;
+    }
+    const payRes = await fetch("/payments/checkout", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({order_no:orderNo, pay_currency:"usdttrc20"})
+    });
+    const payData = await payRes.json();
+    if(!payRes.ok) throw new Error(payData.detail || "USDT支付创建失败");
+    qrBox.innerHTML = `<strong>USDT / TRC20 支付</strong><p>订单号：${orderNo}</p><img src="${payData.qr_code_url}" alt="USDT支付二维码"><p>${payData.pay_address || ""}</p>`;
+    statusBox.innerHTML = `<div class="ok"><strong>USDT支付订单已创建</strong><br>订单号：${orderNo}<br>请按页面显示的地址完成支付。</div>`;
+    buyBtn.disabled = false;
+    buyBtn.innerText = "继续创建订单";
+  }catch(e){
+    statusBox.innerHTML = `<span class="danger">${e.message}</span>`;
+    buyBtn.disabled = false;
+    updateBuyButton();
+  }
+}
+
+async function queryOrder(){
+  const orderNo = document.getElementById("queryOrderNo").value.trim();
+  const queryResult = document.getElementById("queryResult");
+  if(!orderNo){alert("请输入订单号");return}
+  queryResult.innerHTML = "查询中...";
+  const urls = [`/orders/${encodeURIComponent(orderNo)}`, `/orders/query?order_no=${encodeURIComponent(orderNo)}`];
+  let lastError = "订单查询失败";
+  for(const url of urls){
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      if(!res.ok){ lastError = data.detail || "查询失败"; continue; }
+      const productName = PRODUCT_MAP[data.product_code]?.name || data.product_code || "-";
+      queryResult.innerHTML = `<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>套餐：${productName}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}</div>`;
+      return;
+    }catch(e){ lastError = e.message; }
+  }
+  queryResult.innerHTML = `<span class="danger">${lastError}</span>`;
+}
+
+renderProducts();
+updateSelectedProductText();
+selectPay("wechat");
+updateQR();
+loadStock();
 </script>
+
 <!-- 实时客服窗口 -->
-<div id="supportWidget" style="position:fixed;right:18px;bottom:18px;z-index:9999;font-family:Arial;"><button onclick="toggleSupportBox()" style="width:58px;height:58px;border-radius:50%;border:none;background:#6366f1;color:#fff;font-size:24px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;">💬</button><div id="supportBox" style="display:none;width:330px;max-width:calc(100vw - 36px);height:470px;background:#fff;color:#111827;border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.28);overflow:hidden;margin-bottom:12px;"><div style="padding:14px 16px;background:#111827;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;"><span>在线客服</span><button onclick="toggleSupportBox()" style="border:none;background:transparent;color:#fff;font-size:18px;cursor:pointer;width:auto;padding:0;">×</button></div><div id="supportStart" style="padding:14px;"><input id="supportEmail" placeholder="你的邮箱，可选" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;color:#111;background:#fff;"><input id="supportOrderNo" placeholder="订单号，可选" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;color:#111;background:#fff;"><textarea id="supportFirstMessage" placeholder="请输入你要咨询的问题" style="width:100%;height:110px;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;"></textarea><button onclick="startSupportChat()" style="width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;">开始咨询</button><div id="supportStartMsg" style="font-size:13px;color:#b91c1c;margin-top:8px;"></div></div><div id="supportChat" style="display:none;height:416px;flex-direction:column;"><div id="supportMessages" style="height:340px;overflow:auto;padding:12px;background:#f8fafc;"></div><div style="padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;"><input id="supportInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendSupportMessage()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;color:#111;background:#fff;"><button onclick="sendSupportMessage()" style="width:auto;padding:10px 13px;border:none;border-radius:10px;background:#111827;color:#fff;cursor:pointer;">发送</button></div></div></div></div>
+<div id="supportWidget" style="position:fixed;right:18px;bottom:18px;z-index:9999;font-family:Arial;">
+  <button onclick="toggleSupportBox()" style="width:58px;height:58px;border-radius:50%;border:none;background:#6366f1;color:#fff;font-size:24px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;">💬</button>
+  <div id="supportBox" style="display:none;width:330px;max-width:calc(100vw - 36px);height:470px;background:#fff;color:#111827;border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.28);overflow:hidden;margin-bottom:12px;">
+    <div style="padding:14px 16px;background:#111827;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center;"><span>在线客服</span><button onclick="toggleSupportBox()" style="border:none;background:transparent;color:#fff;font-size:18px;cursor:pointer;width:auto;padding:0;">×</button></div>
+    <div id="supportStart" style="padding:14px;">
+      <input id="supportEmail" placeholder="你的邮箱，可选" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;color:#111;background:#fff;">
+      <input id="supportOrderNo" placeholder="订单号，可选" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;color:#111;background:#fff;">
+      <textarea id="supportFirstMessage" placeholder="请输入你要咨询的问题" style="width:100%;height:110px;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;"></textarea>
+      <button onclick="startSupportChat()" style="width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer;">开始咨询</button>
+      <div id="supportStartMsg" style="font-size:13px;color:#b91c1c;margin-top:8px;"></div>
+    </div>
+    <div id="supportChat" style="display:none;height:416px;flex-direction:column;">
+      <div id="supportMessages" style="height:340px;overflow:auto;padding:12px;background:#f8fafc;"></div>
+      <div style="padding:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;">
+        <input id="supportInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendSupportMessage()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;color:#111;background:#fff;">
+        <button onclick="sendSupportMessage()" style="width:auto;padding:10px 13px;border:none;border-radius:10px;background:#111827;color:#fff;cursor:pointer;">发送</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-let supportSessionNo=localStorage.getItem("support_session_no")||"",supportSocket=null;function toggleSupportBox(){const box=document.getElementById("supportBox");box.style.display=box.style.display==="none"?"block":"none";if(box.style.display==="block"&&supportSessionNo)openSupportChat(supportSessionNo)}function appendSupportMessage(sender,content,time){const wrap=document.getElementById("supportMessages"),isAdmin=sender==="admin",div=document.createElement("div");div.style.margin="8px 0";div.style.textAlign=isAdmin?"left":"right";div.innerHTML=`<div style="display:inline-block;max-width:78%;padding:9px 11px;border-radius:12px;background:${isAdmin?"#fff":"#6366f1"};color:${isAdmin?"#111827":"#fff"};border:${isAdmin?"1px solid #e5e7eb":"none"};text-align:left;word-break:break-word;"><div style="font-size:12px;opacity:.75;margin-bottom:4px;">${isAdmin?"客服":"我"} ${time||""}</div><div>${String(content||"").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div></div>`;wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight}async function startSupportChat(){const email=document.getElementById("supportEmail").value.trim(),orderNo=document.getElementById("supportOrderNo").value.trim(),firstMessage=document.getElementById("supportFirstMessage").value.trim(),msgBox=document.getElementById("supportStartMsg");if(!firstMessage){msgBox.innerText="请输入咨询内容";return}msgBox.innerText="正在连接客服...";try{const res=await fetch("/support/sessions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customer_email:email||null,order_no:orderNo||null,first_message:firstMessage})}),data=await res.json();if(!res.ok){msgBox.innerText=data.detail||"创建客服会话失败";return}supportSessionNo=data.session.session_no;localStorage.setItem("support_session_no",supportSessionNo);openSupportChat(supportSessionNo)}catch(e){msgBox.innerText="连接失败："+e.message}}async function openSupportChat(sessionNo){document.getElementById("supportStart").style.display="none";document.getElementById("supportChat").style.display="flex";const messagesBox=document.getElementById("supportMessages");messagesBox.innerHTML="";try{const res=await fetch(`/support/sessions/${encodeURIComponent(sessionNo)}/messages`),data=await res.json();(data.items||[]).forEach(m=>appendSupportMessage(m.sender_type,m.content,""))}catch(e){}connectSupportSocket(sessionNo)}function connectSupportSocket(sessionNo){if(supportSocket){try{supportSocket.close()}catch(e){}}const protocol=location.protocol==="https:"?"wss":"ws";supportSocket=new WebSocket(`${protocol}://${location.host}/ws/support/customer/${encodeURIComponent(sessionNo)}`);supportSocket.onmessage=event=>{const data=JSON.parse(event.data);if(data.type==="message"&&data.message)appendSupportMessage(data.message.sender_type,data.message.content,"")};supportSocket.onclose=()=>{setTimeout(()=>{if(supportSessionNo)connectSupportSocket(supportSessionNo)},3000)}}function sendSupportMessage(){const input=document.getElementById("supportInput"),content=input.value.trim();if(!content)return;if(!supportSocket||supportSocket.readyState!==WebSocket.OPEN){alert("客服连接中，请稍后再试");return}supportSocket.send(JSON.stringify({content}));input.value=""}
+let supportSessionNo=localStorage.getItem("support_session_no")||"";
+let supportSocket=null;
+function toggleSupportBox(){const box=document.getElementById("supportBox");box.style.display=box.style.display==="none"?"block":"none";if(box.style.display==="block"&&supportSessionNo)openSupportChat(supportSessionNo);}
+function appendSupportMessage(sender,content,time){const wrap=document.getElementById("supportMessages");const isAdmin=sender==="admin";const div=document.createElement("div");div.style.margin="8px 0";div.style.textAlign=isAdmin?"left":"right";div.innerHTML=`<div style="display:inline-block;max-width:78%;padding:9px 11px;border-radius:12px;background:${isAdmin?"#fff":"#6366f1"};color:${isAdmin?"#111827":"#fff"};border:${isAdmin?"1px solid #e5e7eb":"none"};text-align:left;word-break:break-word;"><div style="font-size:12px;opacity:.75;margin-bottom:4px;">${isAdmin?"客服":"我"} ${time||""}</div><div>${String(content||"").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div></div>`;wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;}
+async function startSupportChat(){const email=document.getElementById("supportEmail").value.trim();const orderNo=document.getElementById("supportOrderNo").value.trim();const firstMessage=document.getElementById("supportFirstMessage").value.trim();const msgBox=document.getElementById("supportStartMsg");if(!firstMessage){msgBox.innerText="请输入咨询内容";return}msgBox.innerText="正在连接客服...";try{const res=await fetch("/support/sessions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customer_email:email||null,order_no:orderNo||null,first_message:firstMessage})});const data=await res.json();if(!res.ok){msgBox.innerText=data.detail||"创建客服会话失败";return}supportSessionNo=data.session.session_no;localStorage.setItem("support_session_no",supportSessionNo);openSupportChat(supportSessionNo);}catch(e){msgBox.innerText="连接失败："+e.message;}}
+async function openSupportChat(sessionNo){document.getElementById("supportStart").style.display="none";document.getElementById("supportChat").style.display="flex";const messagesBox=document.getElementById("supportMessages");messagesBox.innerHTML="";try{const res=await fetch(`/support/sessions/${encodeURIComponent(sessionNo)}/messages`);const data=await res.json();(data.items||[]).forEach(m=>appendSupportMessage(m.sender_type,m.content,""));}catch(e){}connectSupportSocket(sessionNo);}
+function connectSupportSocket(sessionNo){if(supportSocket){try{supportSocket.close()}catch(e){}}const protocol=location.protocol==="https:"?"wss":"ws";supportSocket=new WebSocket(`${protocol}://${location.host}/ws/support/customer/${encodeURIComponent(sessionNo)}`);supportSocket.onmessage=event=>{const data=JSON.parse(event.data);if(data.type==="message"&&data.message)appendSupportMessage(data.message.sender_type,data.message.content,"");};supportSocket.onclose=()=>{setTimeout(()=>{if(supportSessionNo)connectSupportSocket(supportSessionNo);},3000);};}
+function sendSupportMessage(){const input=document.getElementById("supportInput");const content=input.value.trim();if(!content)return;if(!supportSocket||supportSocket.readyState!==WebSocket.OPEN){alert("客服连接中，请稍后再试");return}supportSocket.send(JSON.stringify({content}));input.value="";}
 </script>
 </body>
 </html>
