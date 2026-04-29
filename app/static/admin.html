@@ -24,6 +24,19 @@ th{background:#f3f4f6}
 .stock{border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#f9fafb}
 .hidden{display:none}
 .nav button{margin-right:8px;margin-bottom:8px}
+.support-layout{display:grid;grid-template-columns:320px 1fr;gap:16px}
+.support-session{padding:12px;border-bottom:1px solid #e5e7eb;cursor:pointer;background:#fff}
+.support-session.closed{background:#f3f4f6;color:#6b7280}
+.support-session.active{background:#eef2ff;border-left:4px solid #6366f1}
+.badge{background:#ef4444;color:#fff;border-radius:999px;padding:2px 7px;font-size:12px}
+.chat-box{height:420px;overflow:auto;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+.msg-row{margin:8px 0}
+.msg-row.admin{text-align:right}
+.msg-bubble{display:inline-block;max-width:75%;padding:9px 11px;border-radius:12px;text-align:left;word-break:break-word}
+.msg-bubble.admin{background:#111827;color:#fff}
+.msg-bubble.customer{background:#fff;color:#111827;border:1px solid #e5e7eb}
+.msg-bubble.system{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.support-layout{grid-template-columns:1fr}}
 </style>
 </head>
 
@@ -32,10 +45,12 @@ th{background:#f3f4f6}
 <div class="card">
   <h2>后台管理</h2>
   <div id="meBox"></div>
+
   <div class="nav" style="margin-top:14px;">
     <button onclick="showTab('orders')">订单管理</button>
     <button onclick="showTab('inventory')">库存管理</button>
     <button onclick="showTab('query')">用户订单查询</button>
+    <button onclick="showTab('support')">实时客服 <span id="supportUnreadBadge"></span></button>
     <button id="adminTabBtn" onclick="showTab('admins')">多管理员系统</button>
     <button class="gray" onclick="logout()">退出登录</button>
   </div>
@@ -93,6 +108,7 @@ th{background:#f3f4f6}
     </select>
     <button onclick="addInventory()">添加库存</button>
   </div>
+
   <textarea id="addCodes" placeholder="一行一个卡密，例如：&#10;gpt-001&#10;gpt-002"></textarea>
   <div id="inventoryMsg" style="margin-top:12px;"></div>
 
@@ -119,6 +135,31 @@ th{background:#f3f4f6}
   <div id="queryResult">请输入订单号查询。</div>
 </div>
 
+<div class="card tab hidden" id="tab-support">
+  <h3>实时客服</h3>
+
+  <div class="support-layout">
+    <div>
+      <div class="toolbar">
+        <button onclick="loadSupportSessions()">刷新会话</button>
+      </div>
+      <div id="supportSessionList" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">加载中...</div>
+    </div>
+
+    <div>
+      <div id="supportCurrentTitle" style="font-weight:700;margin-bottom:10px;">请选择一个会话</div>
+
+      <div id="supportAdminMessages" class="chat-box"></div>
+
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input id="supportAdminInput" placeholder="输入回复内容..." onkeydown="if(event.key==='Enter')sendAdminSupportMessage()" style="flex:1;">
+        <button onclick="sendAdminSupportMessage()">发送</button>
+        <button class="red" onclick="closeSupportSession()">关闭会话</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="card tab hidden" id="tab-admins">
   <h3>多管理员系统</h3>
 
@@ -127,8 +168,8 @@ th{background:#f3f4f6}
     <input id="newAdminUsername" placeholder="管理员账号">
     <input id="newAdminPassword" placeholder="密码" type="password">
     <select id="newAdminRole">
-      <option value="support">support / 只读订单</option>
-      <option value="manager">manager / 订单库存</option>
+      <option value="support">support / 客服</option>
+      <option value="manager">manager / 订单库存客服</option>
       <option value="super_admin">super_admin / 超级管理员</option>
     </select>
     <button onclick="createAdmin()">创建管理员</button>
@@ -157,6 +198,9 @@ if (!token) location.href = "/static/login.html";
 
 let currentAdmin = null;
 let orders = [];
+let supportSessions = [];
+let activeSupportSessionNo = "";
+let adminSupportSocket = null;
 
 function authHeaders(){
   return {
@@ -178,6 +222,16 @@ function showTab(name){
   if(name==="orders") loadOrders();
   if(name==="inventory") loadInventory();
   if(name==="admins") loadAdmins();
+  if(name==="support") loadSupportSessions();
+}
+
+function escapeHtml(s){
+  return String(s || "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
 }
 
 function statusClass(v){
@@ -197,11 +251,12 @@ async function checkMe(){
   try{
     const res=await fetch("/admin/me",{headers:authHeaders()});
     if(res.status===401 || res.status===403){ logout(); return; }
+
     const data=await res.json();
     currentAdmin=data.admin;
 
     document.getElementById("meBox").innerHTML =
-      `当前管理员：<b>${currentAdmin.username}</b> / ${currentAdmin.role}`;
+      `当前管理员：<b>${escapeHtml(currentAdmin.username)}</b> / ${escapeHtml(currentAdmin.role)}`;
 
     if(currentAdmin.role !== "super_admin"){
       document.getElementById("adminTabBtn").style.display="none";
@@ -218,11 +273,12 @@ async function loadOrders(){
   try{
     const res=await fetch("/admin/orders",{headers:authHeaders()});
     if(res.status===401 || res.status===403){ logout(); return; }
+
     const data=await res.json();
     orders=Array.isArray(data)?data:(data.items||[]);
     renderOrders();
   }catch(e){
-    body.innerHTML=`<tr><td colspan="10" class="danger">加载失败：${e.message}</td></tr>`;
+    body.innerHTML=`<tr><td colspan="10" class="danger">加载失败：${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -248,20 +304,20 @@ function renderOrders(){
   body.innerHTML=list.map(o=>{
     const disabled=canConfirm(o)?"":"disabled";
     const btn=canConfirm(o)
-      ? `<button onclick="confirmOne('${o.order_no}')">确认收款并发货</button>`
+      ? `<button onclick="confirmOne('${escapeHtml(o.order_no)}')">确认收款并发货</button>`
       : `<button class="gray" disabled>已发货</button>`;
 
     return `
       <tr class="${canConfirm(o)?"need":""}">
-        <td><input type="checkbox" class="orderCheck" value="${o.order_no}" ${disabled}></td>
-        <td>${o.order_no||"-"} <button class="gray" onclick="copyText('${o.order_no||""}')">复制</button></td>
-        <td>${o.customer_email||"-"} <button class="gray" onclick="copyText('${o.customer_email||""}')">复制</button></td>
-        <td>${o.product_code||"-"}</td>
-        <td class="${statusClass(o.status)}">${o.status||"-"}</td>
-        <td class="${statusClass(o.payment_status)}">${o.payment_status||"-"}</td>
-        <td class="${statusClass(o.delivery_status)}">${o.delivery_status||"-"}</td>
-        <td>${o.delivery_content||"-"}</td>
-        <td>${o.created_at||"-"}</td>
+        <td><input type="checkbox" class="orderCheck" value="${escapeHtml(o.order_no||"")}" ${disabled}></td>
+        <td>${escapeHtml(o.order_no||"-")} <button class="gray" onclick="copyText('${escapeHtml(o.order_no||"")}')">复制</button></td>
+        <td>${escapeHtml(o.customer_email||"-")} <button class="gray" onclick="copyText('${escapeHtml(o.customer_email||"")}')">复制</button></td>
+        <td>${escapeHtml(o.product_code||"-")}</td>
+        <td class="${statusClass(o.status)}">${escapeHtml(o.status||"-")}</td>
+        <td class="${statusClass(o.payment_status)}">${escapeHtml(o.payment_status||"-")}</td>
+        <td class="${statusClass(o.delivery_status)}">${escapeHtml(o.delivery_status||"-")}</td>
+        <td>${escapeHtml(o.delivery_content||"-")}</td>
+        <td>${escapeHtml(o.created_at||"-")}</td>
         <td>${btn}</td>
       </tr>
     `;
@@ -317,10 +373,10 @@ async function loadInventory(){
 
     document.getElementById("stockGrid").innerHTML=(stats.items||[]).map(i=>`
       <div class="stock">
-        <b>${i.product_code}</b><br>
-        可用：<span class="ok">${i.available}</span><br>
-        总数：${i.total}<br>
-        已用：${i.used}
+        <b>${escapeHtml(i.product_code)}</b><br>
+        可用：<span class="ok">${escapeHtml(i.available)}</span><br>
+        总数：${escapeHtml(i.total)}<br>
+        已用：${escapeHtml(i.used)}
       </div>
     `).join("");
 
@@ -329,15 +385,15 @@ async function loadInventory(){
 
     document.getElementById("inventoryBody").innerHTML=(list.items||[]).map(i=>`
       <tr>
-        <td>${i.id}</td>
-        <td>${i.product_code}</td>
-        <td>${i.content}</td>
-        <td class="${i.status==='available'?'ok':'warn'}">${i.status}</td>
+        <td>${escapeHtml(i.id)}</td>
+        <td>${escapeHtml(i.product_code)}</td>
+        <td>${escapeHtml(i.content || i.code || "")}</td>
+        <td class="${i.status==='available'?'ok':'warn'}">${escapeHtml(i.status || (i.is_used ? "used" : "available"))}</td>
       </tr>
     `).join("") || `<tr><td colspan="4">暂无库存</td></tr>`;
 
   }catch(e){
-    document.getElementById("inventoryMsg").innerHTML=`<span class="danger">库存加载失败：${e.message}</span>`;
+    document.getElementById("inventoryMsg").innerHTML=`<span class="danger">库存加载失败：${escapeHtml(e.message)}</span>`;
   }
 }
 
@@ -356,11 +412,11 @@ async function addInventory(){
   const data=await res.json();
 
   if(!res.ok){
-    document.getElementById("inventoryMsg").innerHTML=`<span class="danger">${data.detail||"添加失败"}</span>`;
+    document.getElementById("inventoryMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"添加失败")}</span>`;
     return;
   }
 
-  document.getElementById("inventoryMsg").innerHTML=`<span class="ok">添加成功：${data.inserted} 条</span>`;
+  document.getElementById("inventoryMsg").innerHTML=`<span class="ok">添加成功：${escapeHtml(data.inserted || data.count || 0)} 条</span>`;
   document.getElementById("addCodes").value="";
   loadInventory();
 }
@@ -383,13 +439,13 @@ async function queryOrder(){
 
   document.getElementById("queryResult").innerHTML=`
     <div class="stock">
-      订单号：${found.order_no}<br>
-      邮箱：${found.customer_email}<br>
-      产品：${found.product_code}<br>
-      订单状态：${found.status}<br>
-      支付状态：${found.payment_status}<br>
-      发货状态：${found.delivery_status}<br>
-      发货内容：${found.delivery_content||"-"}
+      订单号：${escapeHtml(found.order_no)}<br>
+      邮箱：${escapeHtml(found.customer_email)}<br>
+      产品：${escapeHtml(found.product_code)}<br>
+      订单状态：${escapeHtml(found.status)}<br>
+      支付状态：${escapeHtml(found.payment_status)}<br>
+      发货状态：${escapeHtml(found.delivery_status)}<br>
+      发货内容：${escapeHtml(found.delivery_content||"-")}
     </div>
   `;
 }
@@ -401,14 +457,14 @@ async function loadAdmins(){
   const data=await res.json();
 
   if(!res.ok){
-    document.getElementById("adminMsg").innerHTML=`<span class="danger">${data.detail||"加载失败"}</span>`;
+    document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"加载失败")}</span>`;
     return;
   }
 
   document.getElementById("adminBody").innerHTML=(data.items||[]).map(a=>`
     <tr>
-      <td>${a.id}</td>
-      <td>${a.username}</td>
+      <td>${escapeHtml(a.id)}</td>
+      <td>${escapeHtml(a.username)}</td>
       <td>
         <select id="role_${a.id}">
           <option value="support" ${a.role==="support"?"selected":""}>support</option>
@@ -417,7 +473,7 @@ async function loadAdmins(){
         </select>
       </td>
       <td>${a.is_active ? '<span class="ok">启用</span>' : '<span class="danger">禁用</span>'}</td>
-      <td>${a.last_login_at||"-"}</td>
+      <td>${escapeHtml(a.last_login_at||"-")}</td>
       <td>
         <input id="pwd_${a.id}" placeholder="新密码，可空" type="password">
         <button onclick="updateAdmin(${a.id})">保存</button>
@@ -444,7 +500,7 @@ async function createAdmin(){
   const data=await res.json();
 
   if(!res.ok){
-    document.getElementById("adminMsg").innerHTML=`<span class="danger">${data.detail||"创建失败"}</span>`;
+    document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"创建失败")}</span>`;
     return;
   }
 
@@ -485,6 +541,181 @@ async function toggleAdmin(id, active){
   loadAdmins();
 }
 
+async function loadSupportSessions(){
+  const box=document.getElementById("supportSessionList");
+  if(!box) return;
+
+  box.innerHTML="加载中...";
+
+  try{
+    const res=await fetch("/support/admin/sessions",{headers:authHeaders()});
+    const data=await res.json();
+
+    if(!res.ok){
+      box.innerHTML=`<div style="padding:12px;color:#b91c1c;">${escapeHtml(data.detail||"加载失败")}</div>`;
+      return;
+    }
+
+    supportSessions=data.items||[];
+    updateSupportUnreadBadge();
+
+    if(!supportSessions.length){
+      box.innerHTML=`<div style="padding:12px;">暂无客服会话</div>`;
+      return;
+    }
+
+    box.innerHTML=supportSessions.map(s=>`
+      <div onclick="openAdminSupportSession('${escapeHtml(s.session_no)}')" class="support-session ${s.status==='closed'?'closed':''} ${activeSupportSessionNo===s.session_no?'active':''}">
+        <b>${escapeHtml(s.session_no)}</b>
+        ${s.unread_count>0?`<span class="badge">${escapeHtml(s.unread_count)}</span>`:""}
+        <br>
+        <small>邮箱：${escapeHtml(s.customer_email||"-")}</small><br>
+        <small>订单：${escapeHtml(s.order_no||"-")}</small><br>
+        <small>状态：${escapeHtml(s.status)}</small>
+      </div>
+    `).join("");
+
+  }catch(e){
+    box.innerHTML=`<div style="padding:12px;color:#b91c1c;">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function updateSupportUnreadBadge(){
+  const total=(supportSessions||[]).reduce((sum,s)=>sum+(Number(s.unread_count)||0),0);
+  const el=document.getElementById("supportUnreadBadge");
+  if(!el) return;
+  el.innerHTML=total>0?`<span class="badge">${total}</span>`:"";
+}
+
+async function openAdminSupportSession(sessionNo){
+  activeSupportSessionNo=sessionNo;
+
+  const title=document.getElementById("supportCurrentTitle");
+  const msgBox=document.getElementById("supportAdminMessages");
+
+  title.innerText="当前会话：" + sessionNo;
+  msgBox.innerHTML="加载消息中...";
+
+  try{
+    const res=await fetch(`/support/admin/sessions/${encodeURIComponent(sessionNo)}/messages`,{
+      headers:authHeaders()
+    });
+    const data=await res.json();
+
+    if(!res.ok){
+      msgBox.innerHTML=`<span class="danger">${escapeHtml(data.detail||"加载失败")}</span>`;
+      return;
+    }
+
+    msgBox.innerHTML="";
+
+    (data.items||[]).forEach(m=>{
+      appendAdminSupportMessage(m.sender_type,m.sender_name,m.content);
+    });
+
+    connectAdminSupportSocket(sessionNo);
+    loadSupportSessions();
+
+  }catch(e){
+    msgBox.innerHTML=`<span class="danger">${escapeHtml(e.message)}</span>`;
+  }
+}
+
+function appendAdminSupportMessage(senderType,senderName,content){
+  const box=document.getElementById("supportAdminMessages");
+  if(!box) return;
+
+  const div=document.createElement("div");
+  div.className="msg-row " + (senderType==="admin"?"admin":"");
+
+  let bubbleClass="customer";
+  if(senderType==="admin") bubbleClass="admin";
+  if(senderType==="system") bubbleClass="system";
+
+  div.innerHTML=`
+    <div class="msg-bubble ${bubbleClass}">
+      <div style="font-size:12px;opacity:.75;margin-bottom:4px;">${escapeHtml(senderName||senderType)}</div>
+      <div>${escapeHtml(content||"")}</div>
+    </div>
+  `;
+
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+
+function connectAdminSupportSocket(sessionNo){
+  if(adminSupportSocket){
+    try{adminSupportSocket.close();}catch(e){}
+  }
+
+  const protocol=location.protocol==="https:"?"wss":"ws";
+  adminSupportSocket=new WebSocket(`${protocol}://${location.host}/ws/support/admin/${encodeURIComponent(sessionNo)}?token=${encodeURIComponent(token)}`);
+
+  adminSupportSocket.onmessage=(event)=>{
+    const data=JSON.parse(event.data);
+
+    if(data.type==="message" && data.message){
+      appendAdminSupportMessage(
+        data.message.sender_type,
+        data.message.sender_name,
+        data.message.content
+      );
+      loadSupportSessions();
+    }
+
+    if(data.type==="error"){
+      alert(data.message || "客服连接错误");
+    }
+  };
+
+  adminSupportSocket.onclose=()=>{};
+}
+
+function sendAdminSupportMessage(){
+  const input=document.getElementById("supportAdminInput");
+  const content=input.value.trim();
+
+  if(!activeSupportSessionNo){
+    alert("请先选择一个客服会话");
+    return;
+  }
+
+  if(!content) return;
+
+  if(!adminSupportSocket || adminSupportSocket.readyState!==WebSocket.OPEN){
+    alert("客服连接未建立，请重新点一下会话");
+    return;
+  }
+
+  adminSupportSocket.send(JSON.stringify({content}));
+  input.value="";
+}
+
+async function closeSupportSession(){
+  if(!activeSupportSessionNo){
+    alert("请先选择会话");
+    return;
+  }
+
+  if(!confirm("确认关闭该客服会话？")) return;
+
+  const res=await fetch(`/support/admin/sessions/${encodeURIComponent(activeSupportSessionNo)}/close`,{
+    method:"POST",
+    headers:authHeaders()
+  });
+
+  const data=await res.json();
+
+  if(!res.ok){
+    alert(data.detail||"关闭失败");
+    return;
+  }
+
+  alert("已关闭");
+  loadSupportSessions();
+  openAdminSupportSession(activeSupportSessionNo);
+}
+
 function copyText(t){
   navigator.clipboard.writeText(t);
   alert("已复制：" + t);
@@ -492,10 +723,13 @@ function copyText(t){
 
 checkMe();
 loadOrders();
+loadSupportSessions();
+
 setInterval(()=>{
   if(!document.getElementById("tab-orders").classList.contains("hidden")){
     loadOrders();
   }
+  loadSupportSessions();
 },10000);
 </script>
 
