@@ -68,23 +68,23 @@ select option{color:#111827}
 <div class="page">
   <div class="nav">
     <div class="logo">AI会员购买中心</div>
-    <div class="badge">独享账号 / 代开通 · 不售共享版</div>
+    <div class="badge">全部代开通 · 不售账号类产品</div>
   </div>
 
   <section class="hero">
     <div class="hero-card">
-      <div class="tag">● 独享账号 / 官方代开通更稳定</div>
+      <div class="tag">● 官方代开通更稳定</div>
       <h1>AI 会员稳定购买中心</h1>
-      <p>已移除共享账号产品，主推独享账号和代开通服务，降低风控和售后风险。覆盖 ChatGPT、Claude、Midjourney、Gemini、Perplexity、Cursor 等热门 AI 工具。</p>
+      <p>本站只提供代开通服务，不销售共享账号和独享账号。使用你的邮箱开通，降低账号风控和售后风险。覆盖 ChatGPT、Claude、Midjourney、Gemini、Perplexity、Cursor 等热门 AI 工具。</p>
       <div class="hero-actions">
         <button class="btn btn-primary" onclick="scrollToBuy()">立即购买</button>
         <button class="btn btn-secondary" onclick="scrollToQuery()">查询订单</button>
       </div>
     </div>
     <div class="hero-side">
-      <div class="mini-card"><strong>独享账号</strong><span>一人一号，适合稳定使用，是长期主推产品。</span></div>
-      <div class="mini-card"><strong>官方代开通</strong><span>使用客户自己的邮箱开通，稳定性更高。</span></div>
-      <div class="mini-card"><strong>不售共享版</strong><span>减少多人共用带来的封禁、掉线和售后风险。</span></div>
+      <div class="mini-card"><strong>全部代开通</strong><span>使用客户自己的邮箱开通，稳定性更高。</span></div>
+      <div class="mini-card"><strong>无需账号库存</strong><span>不囤账号，不担心会员时长流失。</span></div>
+      <div class="mini-card"><strong>不售账号类产品</strong><span>不卖共享账号，也不卖独享账号，减少封禁、掉线和售后风险。</span></div>
     </div>
   </section>
 
@@ -99,8 +99,8 @@ select option{color:#111827}
       <label>当前选择</label>
       <input id="selectedProductText" disabled>
 
-      <label>接收邮箱</label>
-      <input id="email" placeholder="请输入你的邮箱，用于接收订单和开通通知">
+      <label>开通邮箱</label>
+      <input id="email" placeholder="请输入需要开通会员的邮箱">
 
       <label>支付方式</label>
       <div class="pay-tabs">
@@ -118,7 +118,7 @@ select option{color:#111827}
       <div class="qr-box" id="qrBox"></div>
       <div class="status-box">
         <strong>付款说明</strong><br>
-        微信/支付宝付款后，请保留订单号。后台确认后会进入开通流程，完成后会发送通知。
+        微信/支付宝付款后，请保留订单号。后台确认后会进入代开通流程，完成后会发送通知。
       </div>
     </div>
   </section>
@@ -126,9 +126,9 @@ select option{color:#111827}
   <h2 class="section-title">购买流程</h2>
   <section class="steps">
     <div class="step"><b>1</b><br>选择产品线和套餐。</div>
-    <div class="step"><b>2</b><br>填写邮箱并创建订单。</div>
+    <div class="step"><b>2</b><br>填写需要开通的邮箱。</div>
     <div class="step"><b>3</b><br>扫码付款并保留订单号。</div>
-    <div class="step"><b>4</b><br>确认后发货或人工开通。</div>
+    <div class="step"><b>4</b><br>确认后人工开通并通知。</div>
   </section>
 
   <h2 class="section-title" id="queryArea">订单查询</h2>
@@ -144,9 +144,9 @@ select option{color:#111827}
     <div class="panel">
       <h3>常见问题</h3>
       <div class="faq">
-        <div class="faq-item"><strong>独享账号和代开通区别？</strong><p>独享账号是平台提供账号；代开通是使用你的邮箱开通，稳定性更高。</p></div>
-        <div class="faq-item"><strong>多久完成？</strong><p>独享账号确认后可发货；代开通通常需要人工处理。</p></div>
-        <div class="faq-item"><strong>为什么不卖共享版？</strong><p>共享版多人使用，容易掉线、风控和售后，已不作为主推产品。</p></div>
+        <div class="faq-item"><strong>还卖独享账号吗？</strong><p>不卖。本站只提供代开通服务。</p></div>
+        <div class="faq-item"><strong>多久完成？</strong><p>付款确认后进入人工开通流程，完成后会通知。</p></div>
+        <div class="faq-item"><strong>为什么不卖共享版？</strong><p>共享版多人使用，容易掉线、风控和售后，本站已移除。</p></div>
         <div class="faq-item"><strong>遇到问题怎么办？</strong><p>右下角点击在线客服，提供订单号即可咨询。</p></div>
       </div>
     </div>
@@ -157,30 +157,29 @@ select option{color:#111827}
 
 <script>
 const PRODUCTS = [
-  {code:"GPT_PLUS_1M",category:"ChatGPT",name:"ChatGPT Plus 独享账号",price:180,period:"1个月",badge:"🔥 主推",desc:"一人一号，稳定性更高，适合日常办公、学习、写作。",noInventory:false},
-  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,period:"1个月",badge:"最稳定",desc:"使用你的邮箱开通会员，风险最低，需人工处理。",noInventory:true},
-  {code:"GPT_PLUS_3M",category:"ChatGPT",name:"ChatGPT Plus 独享季卡",price:499,period:"3个月",badge:"更划算",desc:"长期使用更省心，适合稳定需求。",noInventory:false},
+  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,period:"1个月",badge:"🔥 主推",desc:"使用你的邮箱开通会员，风险最低，需人工处理。",noInventory:true},
+  {code:"GPT_ACTIVATE_3M",category:"ChatGPT",name:"ChatGPT Plus 季卡代开通",price:599,period:"3个月",badge:"更划算",desc:"长期使用更省心，适合稳定需求。",noInventory:true},
   {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,period:"1个月",badge:"团队版",desc:"适合团队协作和高频使用，需人工处理。",noInventory:true},
 
-  {code:"CLAUDE_PRO_1M",category:"Claude",name:"Claude Pro 独享账号",price:200,period:"1个月",badge:"长文推荐",desc:"适合论文、长文、报告、内容处理。",noInventory:false},
   {code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 代开通",price:230,period:"1个月",badge:"更稳定",desc:"使用你的邮箱开通，适合长期稳定使用。",noInventory:true},
-  {code:"CLAUDE_PRO_3M",category:"Claude",name:"Claude Pro 独享季卡",price:560,period:"3个月",badge:"长期稳定",desc:"长期长文处理需求，减少续费麻烦。",noInventory:false},
+  {code:"CLAUDE_ACTIVATE_3M",category:"Claude",name:"Claude Pro 季卡代开通",price:629,period:"3个月",badge:"长期稳定",desc:"长期长文处理需求，减少续费麻烦。",noInventory:true},
 
-  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic",price:120,period:"1个月",badge:"AI绘画入门",desc:"适合低频出图和基础设计。",noInventory:false},
-  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard",price:180,period:"1个月",badge:"绘画推荐",desc:"适合设计素材、海报、创意图。",noInventory:false},
-  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro",price:300,period:"1个月",badge:"高频创作",desc:"适合设计师和高频出图用户。",noInventory:false},
+  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic 代开通",price:120,period:"1个月",badge:"AI绘画入门",desc:"适合低频出图和基础设计。",noInventory:true},
+  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard 代开通",price:180,period:"1个月",badge:"绘画推荐",desc:"适合设计素材、海报、创意图。",noInventory:true},
+  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro 代开通",price:300,period:"1个月",badge:"高频创作",desc:"适合设计师和高频出图用户。",noInventory:true},
 
-  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced",price:99,period:"1个月",badge:"Google AI",desc:"适合多模态和搜索增强使用。",noInventory:false},
-  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro",price:120,period:"1个月",badge:"搜索问答",desc:"适合资料检索、论文搜索、研究。",noInventory:false},
-  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro",price:150,period:"1个月",badge:"编程助手",desc:"适合程序员 AI 编程开发。",noInventory:false},
-  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶月卡",price:300,period:"1个月",badge:"组合优惠",desc:"ChatGPT / Claude / MJ 等组合套餐。",noInventory:false}
+  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced 代开通",price:99,period:"1个月",badge:"Google AI",desc:"适合多模态和搜索增强使用。",noInventory:true},
+  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro 代开通",price:120,period:"1个月",badge:"搜索问答",desc:"适合资料检索、论文搜索、研究。",noInventory:true},
+  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro 代开通",price:150,period:"1个月",badge:"编程助手",desc:"适合程序员 AI 编程开发。",noInventory:true},
+
+  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶代开通",price:300,period:"1个月",badge:"组合优惠",desc:"ChatGPT / Claude / MJ 等组合套餐。",noInventory:true}
 ];
 
 const PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
 const CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
 
 let activeCategory = "ChatGPT";
-let selectedProduct = "GPT_PLUS_1M";
+let selectedProduct = "GPT_ACTIVATE_1M";
 let selectedPayMethod = "wechat";
 let stockMap = {};
 
@@ -212,19 +211,6 @@ function selectCategory(category){
 function renderProducts(){
   const list = PRODUCTS.filter(p => p.category === activeCategory);
   document.getElementById("products").innerHTML = list.map(p => {
-    const stock = stockMap[p.code] || 0;
-    let stockHtml = "";
-
-    if(p.noInventory){
-      stockHtml = `<span class="ok">人工开通，无需库存</span>`;
-    }else if(stock > 3){
-      stockHtml = `<span class="ok">库存充足：${stock}</span>`;
-    }else if(stock > 0){
-      stockHtml = `<span class="warn">库存紧张：${stock}</span>`;
-    }else{
-      stockHtml = `<span class="danger">暂时缺货</span>`;
-    }
-
     return `
       <div class="product-card ${selectedProduct===p.code?'active':''}" data-code="${p.code}" onclick="selectProduct('${p.code}')">
         <div>
@@ -234,7 +220,7 @@ function renderProducts(){
         </div>
         <div>
           <div class="price">¥${p.price} <small>/ ${p.period}</small></div>
-          <div class="stock">${stockHtml}</div>
+          <div class="stock"><span class="ok">人工开通，无需库存</span></div>
         </div>
       </div>
     `;
@@ -260,30 +246,9 @@ function selectPay(method){
   updateQR();
 }
 
-async function loadStock(){
-  try{
-    const res = await fetch("/inventory/stats");
-    const data = await res.json();
-    stockMap = {};
-    (data.items || []).forEach(i => { stockMap[i.product_code] = i.available || 0; });
-    renderProducts();
-    updateBuyButton();
-  }catch(e){
-    renderProducts();
-  }
-}
-
 function updateBuyButton(){
-  const p = PRODUCT_MAP[selectedProduct];
-  const stock = stockMap[selectedProduct] || 0;
-
-  if(!p.noInventory && stock <= 0){
-    buyBtn.disabled = true;
-    buyBtn.innerText = "当前套餐暂时缺货";
-  }else{
-    buyBtn.disabled = false;
-    buyBtn.innerText = "立即创建订单";
-  }
+  buyBtn.disabled = false;
+  buyBtn.innerText = "立即创建订单";
 }
 
 function updateQR(){
@@ -330,7 +295,7 @@ async function buy(){
 
     qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":selectedPayMethod==="alipay"?"支付宝":"USDT"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认。</p>`;
 
-    statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>${p.noInventory ? "该套餐为人工开通服务，付款后请等待处理。" : "请扫码付款，后台确认后发货。"}</div>`;
+    statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>该套餐为人工代开通服务，付款后请等待处理。</div>`;
 
     buyBtn.disabled = false;
     buyBtn.innerText = "继续创建订单";
@@ -376,7 +341,7 @@ renderProducts();
 updateSelectedProductText();
 selectPay("wechat");
 updateQR();
-loadStock();
+updateBuyButton();
 </script>
 
 <script src="/static/chat.js?v=1"></script>
