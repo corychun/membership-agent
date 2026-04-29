@@ -13,6 +13,8 @@ from app.api.webhooks import router as webhooks
 from app.api.deliveries import router as deliveries
 from app.api.inventory import router as inventory_router
 from app.api.admin import router as admin_router
+from app.api.support import router as support_router
+from app.api.support_ws import router as support_ws_router
 
 app = FastAPI(title="membership-agent", version="1.0.0")
 
@@ -20,6 +22,7 @@ app = FastAPI(title="membership-agent", version="1.0.0")
 @app.on_event("startup")
 def init():
     Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     try:
         seed_first_admin(db)
@@ -57,3 +60,5 @@ app.include_router(webhooks)
 app.include_router(deliveries)
 app.include_router(inventory_router)
 app.include_router(admin_router)
+app.include_router(support_router)
+app.include_router(support_ws_router)
