@@ -41,20 +41,22 @@ class MembershipEntitlement(Base):
     entitlement_code = Column(String(100))
     activation_result = Column(Text)
 
+
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
 
     id = Column(Integer, primary_key=True)
 
     product_code = Column(String(100), index=True)
-    code = Column(Text)  # 卡密 / 账号 / key
+    code = Column(Text)
 
-    is_used = Column(Integer, default=0)  # 0=未使用 1=已使用
+    is_used = Column(Integer, default=0)
     used_at = Column(DateTime)
 
     order_id = Column(Integer, ForeignKey("orders.id"))
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class AdminUser(Base):
     __tablename__ = "admin_users"
@@ -63,6 +65,37 @@ class AdminUser(Base):
     username = Column(String(80), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(30), default="support", nullable=False)
-    is_active = Column(Integer, default=1)  # 1=启用 0=禁用
+    is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime)
+
+
+class SupportSession(Base):
+    __tablename__ = "support_sessions"
+
+    id = Column(Integer, primary_key=True)
+    session_no = Column(String(64), unique=True, index=True, nullable=False)
+
+    customer_email = Column(String(255))
+    order_no = Column(String(64), index=True)
+    status = Column(String(30), default="open")  # open / closed
+
+    assigned_admin_id = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    last_message_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("support_sessions.id"), index=True, nullable=False)
+
+    sender_type = Column(String(30), nullable=False)  # customer / admin / system
+    sender_name = Column(String(100))
+    content = Column(Text, nullable=False)
+
+    is_read = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
