@@ -19,21 +19,11 @@ body{
   padding:20px;
 }
 
-/* ===== 顶部 ===== */
 .hero{
   text-align:center;
   padding:40px 20px;
 }
 
-.hero h1{
-  font-size:42px;
-}
-
-.hero p{
-  color:#cbd5e1;
-}
-
-/* ===== 卡片 ===== */
 .products{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
@@ -44,7 +34,6 @@ body{
   background:#111827;
   padding:20px;
   border-radius:16px;
-  border:1px solid rgba(255,255,255,0.1);
   cursor:pointer;
 }
 
@@ -52,36 +41,14 @@ body{
   border:2px solid #6366f1;
 }
 
-.price{
-  font-size:28px;
-  font-weight:bold;
-  margin-top:10px;
-}
-
-.stock{
-  font-size:13px;
-  margin-top:6px;
-}
-
-/* ===== 按钮 ===== */
 button{
   width:100%;
   padding:14px;
-  margin-top:10px;
   border:none;
   border-radius:12px;
-  font-weight:bold;
-  cursor:pointer;
-  background:linear-gradient(90deg,#6366f1,#8b5cf6);
+  background:#6366f1;
   color:#fff;
-}
-
-/* ===== 面板 ===== */
-.panel{
-  background:#111827;
-  padding:20px;
-  border-radius:16px;
-  margin-top:20px;
+  cursor:pointer;
 }
 
 input{
@@ -92,64 +59,11 @@ input{
   margin-top:10px;
 }
 
-/* ===== 支付 ===== */
-.pay{
-  display:flex;
-  gap:10px;
-  margin-top:10px;
-}
-
-.pay div{
-  flex:1;
-  padding:10px;
-  background:#1f2937;
-  border-radius:10px;
-  text-align:center;
-  cursor:pointer;
-}
-
-.pay .active{
-  background:#6366f1;
-}
-
-/* ===== QR ===== */
-.qr{
-  text-align:center;
-  margin-top:15px;
-}
-
-.qr img{
-  max-width:200px;
-  background:#fff;
-  padding:8px;
-}
-
-/* ===== 信任 ===== */
-.trust{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:12px;
-}
-
-.trust div{
-  background:#1f2937;
-  padding:16px;
-  border-radius:12px;
-}
-
-/* ===== FAQ ===== */
-.faq{
+.panel{
+  background:#111827;
+  padding:20px;
+  border-radius:16px;
   margin-top:20px;
-}
-
-.faq div{
-  margin-bottom:10px;
-}
-
-/* ===== 状态 ===== */
-.status{
-  margin-top:10px;
-  color:#22c55e;
 }
 </style>
 </head>
@@ -158,68 +72,29 @@ input{
 
 <div class="container">
 
-<!-- 顶部 -->
 <div class="hero">
   <h1>AI会员一键购买</h1>
-  <p>ChatGPT / Claude / Midjourney 自动发货 · 支持微信/支付宝</p>
+  <p>自动发货 · 支持微信/支付宝</p>
 </div>
 
-<!-- 产品 -->
 <div class="products" id="products"></div>
 
-<!-- 购买 -->
 <div class="panel">
-  <h3>填写信息</h3>
-
   <input id="email" placeholder="请输入邮箱">
-
-  <div class="pay">
-    <div onclick="setPay('wechat')" id="wechat" class="active">微信</div>
-    <div onclick="setPay('alipay')" id="alipay">支付宝</div>
-    <div onclick="setPay('usdt')" id="usdt">USDT</div>
-  </div>
-
   <button onclick="buy()">立即购买</button>
-
-  <div class="status" id="status"></div>
-</div>
-
-<!-- 二维码 -->
-<div class="panel qr" id="qr"></div>
-
-<!-- 信任 -->
-<div class="panel">
-  <h3>为什么选择我们</h3>
-  <div class="trust">
-    <div>⚡ 自动发货</div>
-    <div>🔒 稳定安全</div>
-    <div>💬 售后支持</div>
-    <div>💰 多支付方式</div>
-  </div>
-</div>
-
-<!-- FAQ -->
-<div class="panel faq">
-  <h3>常见问题</h3>
-  <div>Q：多久发货？ A：1分钟内</div>
-  <div>Q：封号怎么办？ A：补发</div>
-  <div>Q：支持退款吗？ A：联系客服</div>
+  <div id="status"></div>
 </div>
 
 </div>
 
 <script>
-const API="https://membership-agent.onrender.com";
+const API="";
 
 let product="GPT";
-let pay="wechat";
 
-/* 产品 */
 const products=[
  {code:"GPT",name:"ChatGPT Plus",price:180},
- {code:"CLAUDE",name:"Claude Pro",price:200},
- {code:"MJ",name:"Midjourney",price:150},
- {code:"VIP",name:"VIP套餐",price:300}
+ {code:"CLAUDE",name:"Claude Pro",price:200}
 ];
 
 const container=document.getElementById("products");
@@ -227,46 +102,19 @@ const container=document.getElementById("products");
 products.forEach(p=>{
   const div=document.createElement("div");
   div.className="card";
-  div.innerHTML=`
-    <h3>${p.name}</h3>
-    <div class="price">¥${p.price}</div>
-    <div class="stock" id="s_${p.code}">加载中...</div>
-  `;
+  div.innerHTML=`<h3>${p.name}</h3><div>¥${p.price}</div>`;
   div.onclick=()=>select(p.code,div);
   container.appendChild(div);
 });
 
-/* 选中 */
 function select(code,el){
   product=code;
   document.querySelectorAll(".card").forEach(c=>c.classList.remove("active"));
   el.classList.add("active");
 }
 
-/* 支付 */
-function setPay(p){
-  pay=p;
-  document.querySelectorAll(".pay div").forEach(i=>i.classList.remove("active"));
-  document.getElementById(p).classList.add("active");
-}
-
-/* 库存 */
-async function loadStock(){
-  const res=await fetch(API+"/inventory/stats");
-  const data=await res.json();
-  data.items.forEach(i=>{
-    const el=document.getElementById("s_"+i.product_code);
-    if(el) el.innerText="库存："+i.available;
-  });
-}
-loadStock();
-
-/* 购买 */
 async function buy(){
   const email=document.getElementById("email").value;
-  if(!email) return alert("填邮箱");
-
-  document.getElementById("status").innerText="创建订单...";
 
   const res=await fetch(API+"/orders",{
     method:"POST",
@@ -277,26 +125,86 @@ async function buy(){
   const data=await res.json();
 
   document.getElementById("status").innerText="订单："+data.order_no;
+}
+</script>
 
-  if(pay==="usdt"){
-    const payRes=await fetch(API+"/payments/checkout",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({order_no:data.order_no,pay_currency:"usdttrc20"})
-    });
+<!-- ================= 客服系统 ================= -->
 
-    const p=await payRes.json();
+<div id="supportWidget" style="position:fixed;right:20px;bottom:20px;z-index:9999;">
+  <button onclick="toggleSupport()" style="width:60px;height:60px;border-radius:50%;background:#6366f1;color:#fff;font-size:24px;">💬</button>
 
-    document.getElementById("qr").innerHTML=`
-      <img src="${p.qr_code_url}">
-      <div>${p.pay_address}</div>
-    `;
-  }else{
-    document.getElementById("qr").innerHTML=`
-      <img src="/static/qrcodes/${pay}.png">
-      <div>订单号：${data.order_no}</div>
-    `;
-  }
+  <div id="supportBox" style="display:none;width:320px;height:450px;background:#fff;color:#000;border-radius:16px;margin-bottom:10px;overflow:hidden;">
+    
+    <div style="background:#111827;color:#fff;padding:10px;">
+      在线客服
+      <span style="float:right;cursor:pointer;" onclick="toggleSupport()">✖</span>
+    </div>
+
+    <div id="supportStart" style="padding:10px;">
+      <input id="supportEmail" placeholder="邮箱">
+      <textarea id="supportMsg" placeholder="请输入问题" style="width:100%;height:100px;"></textarea>
+      <button onclick="startChat()">开始咨询</button>
+    </div>
+
+    <div id="chatBox" style="display:none;height:360px;flex-direction:column;">
+      <div id="messages" style="height:300px;overflow:auto;padding:10px;"></div>
+      <input id="chatInput" onkeydown="if(event.key==='Enter')sendMsg()" placeholder="输入消息">
+    </div>
+
+  </div>
+</div>
+
+<script>
+let sessionNo=localStorage.getItem("sessionNo");
+let ws=null;
+
+function toggleSupport(){
+  const box=document.getElementById("supportBox");
+  box.style.display=box.style.display==="none"?"block":"none";
+}
+
+async function startChat(){
+  const email=document.getElementById("supportEmail").value;
+  const msg=document.getElementById("supportMsg").value;
+
+  const res=await fetch("/support/sessions",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({customer_email:email,first_message:msg})
+  });
+
+  const data=await res.json();
+
+  sessionNo=data.session.session_no;
+  localStorage.setItem("sessionNo",sessionNo);
+
+  openChat();
+}
+
+function openChat(){
+  document.getElementById("supportStart").style.display="none";
+  document.getElementById("chatBox").style.display="flex";
+
+  ws=new WebSocket(`wss://${location.host}/ws/support/customer/${sessionNo}`);
+
+  ws.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.message){
+      addMsg(d.message.content);
+    }
+  };
+}
+
+function sendMsg(){
+  const input=document.getElementById("chatInput");
+  ws.send(JSON.stringify({content:input.value}));
+  input.value="";
+}
+
+function addMsg(t){
+  const div=document.createElement("div");
+  div.innerText=t;
+  document.getElementById("messages").appendChild(div);
 }
 </script>
 
