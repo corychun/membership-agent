@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI会员代充平台</title>
+<title>AI会员购买中心</title>
 
 <style>
 body{
@@ -11,29 +11,31 @@ body{
   font-family:Arial;
   background:#0f172a;
   color:#fff;
+  text-align:center;
 }
 
 .container{
-  max-width:1100px;
+  max-width:900px;
   margin:auto;
-  padding:20px;
-}
-
-.hero{
-  text-align:center;
   padding:40px 20px;
 }
 
+h1{
+  font-size:38px;
+}
+
 .products{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-  gap:16px;
+  display:flex;
+  gap:20px;
+  justify-content:center;
+  margin:40px 0;
 }
 
 .card{
   background:#111827;
   padding:20px;
   border-radius:16px;
+  width:200px;
   cursor:pointer;
 }
 
@@ -41,28 +43,27 @@ body{
   border:2px solid #6366f1;
 }
 
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:12px;
-  background:#6366f1;
-  color:#fff;
-  cursor:pointer;
-}
-
 input{
   width:100%;
-  padding:12px;
+  padding:14px;
   border-radius:10px;
   border:none;
   margin-top:10px;
 }
 
-.panel{
-  background:#111827;
-  padding:20px;
-  border-radius:16px;
+button{
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  background:#6366f1;
+  color:#fff;
+  font-size:16px;
+  cursor:pointer;
+}
+
+#qr{
   margin-top:20px;
 }
 </style>
@@ -71,41 +72,30 @@ input{
 <body>
 
 <div class="container">
-
-<div class="hero">
   <h1>AI会员一键购买</h1>
-  <p>自动发货 · 支持微信/支付宝</p>
-</div>
+  <p>自动发货 · 支持微信 / 支付宝</p>
 
-<div class="products" id="products"></div>
+  <div class="products">
+    <div class="card active" onclick="select('GPT',this)">
+      <h3>ChatGPT Plus</h3>
+      <p>¥180</p>
+    </div>
 
-<div class="panel">
+    <div class="card" onclick="select('CLAUDE',this)">
+      <h3>Claude Pro</h3>
+      <p>¥200</p>
+    </div>
+  </div>
+
   <input id="email" placeholder="请输入邮箱">
   <button onclick="buy()">立即购买</button>
+
+  <div id="qr"></div>
   <div id="status"></div>
 </div>
 
-</div>
-
 <script>
-const API="";
-
 let product="GPT";
-
-const products=[
- {code:"GPT",name:"ChatGPT Plus",price:180},
- {code:"CLAUDE",name:"Claude Pro",price:200}
-];
-
-const container=document.getElementById("products");
-
-products.forEach(p=>{
-  const div=document.createElement("div");
-  div.className="card";
-  div.innerHTML=`<h3>${p.name}</h3><div>¥${p.price}</div>`;
-  div.onclick=()=>select(p.code,div);
-  container.appendChild(div);
-});
 
 function select(code,el){
   product=code;
@@ -116,96 +106,65 @@ function select(code,el){
 async function buy(){
   const email=document.getElementById("email").value;
 
-  const res=await fetch(API+"/orders",{
+  if(!email){
+    alert("请输入邮箱");
+    return;
+  }
+
+  const res=await fetch("/orders",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({product_code:product,customer_email:email})
+    body:JSON.stringify({
+      product_code:product,
+      customer_email:email
+    })
   });
 
   const data=await res.json();
 
   document.getElementById("status").innerText="订单："+data.order_no;
+
+  document.getElementById("qr").innerHTML=`
+    <p>扫码付款</p>
+    <img src="/static/qrcodes/wechat.png" width="200">
+  `;
 }
 </script>
 
-<!-- ================= 客服系统 ================= -->
+<!-- 客服系统 -->
+<div style="position:fixed;right:20px;bottom:20px;">
+  <button onclick="toggleChat()" style="width:60px;height:60px;border-radius:50%;">💬</button>
 
-<div id="supportWidget" style="position:fixed;right:20px;bottom:20px;z-index:9999;">
-  <button onclick="toggleSupport()" style="width:60px;height:60px;border-radius:50%;background:#6366f1;color:#fff;font-size:24px;">💬</button>
-
-  <div id="supportBox" style="display:none;width:320px;height:450px;background:#fff;color:#000;border-radius:16px;margin-bottom:10px;overflow:hidden;">
-    
-    <div style="background:#111827;color:#fff;padding:10px;">
-      在线客服
-      <span style="float:right;cursor:pointer;" onclick="toggleSupport()">✖</span>
-    </div>
-
-    <div id="supportStart" style="padding:10px;">
-      <input id="supportEmail" placeholder="邮箱">
-      <textarea id="supportMsg" placeholder="请输入问题" style="width:100%;height:100px;"></textarea>
-      <button onclick="startChat()">开始咨询</button>
-    </div>
-
-    <div id="chatBox" style="display:none;height:360px;flex-direction:column;">
-      <div id="messages" style="height:300px;overflow:auto;padding:10px;"></div>
-      <input id="chatInput" onkeydown="if(event.key==='Enter')sendMsg()" placeholder="输入消息">
-    </div>
-
+  <div id="chatBox" style="display:none;width:300px;height:400px;background:#fff;color:#000;">
+    <div style="background:#000;color:#fff;padding:10px;">客服</div>
+    <div id="msgs" style="height:300px;overflow:auto;"></div>
+    <input id="msgInput" onkeydown="if(event.key==='Enter')sendMsg()">
   </div>
 </div>
 
 <script>
-let sessionNo=localStorage.getItem("sessionNo");
-let ws=null;
+let ws;
 
-function toggleSupport(){
-  const box=document.getElementById("supportBox");
+function toggleChat(){
+  const box=document.getElementById("chatBox");
   box.style.display=box.style.display==="none"?"block":"none";
 }
 
-async function startChat(){
-  const email=document.getElementById("supportEmail").value;
-  const msg=document.getElementById("supportMsg").value;
-
-  const res=await fetch("/support/sessions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({customer_email:email,first_message:msg})
-  });
-
-  const data=await res.json();
-
-  sessionNo=data.session.session_no;
-  localStorage.setItem("sessionNo",sessionNo);
-
-  openChat();
+function sendMsg(){
+  const val=document.getElementById("msgInput").value;
+  ws.send(JSON.stringify({content:val}));
 }
 
-function openChat(){
-  document.getElementById("supportStart").style.display="none";
-  document.getElementById("chatBox").style.display="flex";
-
-  ws=new WebSocket(`wss://${location.host}/ws/support/customer/${sessionNo}`);
+function initChat(){
+  ws=new WebSocket(`wss://${location.host}/ws/support/customer/demo`);
 
   ws.onmessage=(e)=>{
     const d=JSON.parse(e.data);
-    if(d.message){
-      addMsg(d.message.content);
-    }
+    document.getElementById("msgs").innerHTML+=`<div>${d.message.content}</div>`;
   };
 }
 
-function sendMsg(){
-  const input=document.getElementById("chatInput");
-  ws.send(JSON.stringify({content:input.value}));
-  input.value="";
-}
-
-function addMsg(t){
-  const div=document.createElement("div");
-  div.innerText=t;
-  document.getElementById("messages").appendChild(div);
-}
+initChat();
 </script>
 
 </body>
