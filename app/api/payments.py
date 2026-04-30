@@ -14,8 +14,25 @@ class CheckoutRequest(BaseModel):
     pay_currency: str = "usdttrc20"
 
 
-# 🔥 改这里：统一 20 USD
-PRICE_MAP = {
+PRICE_MAP_USD = {
+    "GPT_ACTIVATE_1M": 20,
+    "GPT_ACTIVATE_3M": 55,
+    "GPT_TEAM_1M": 25,
+
+    "CLAUDE_ACTIVATE_1M": 20,
+    "CLAUDE_ACTIVATE_3M": 58,
+
+    "MJ_BASIC_1M": 12,
+    "MJ_STANDARD_1M": 18,
+    "MJ_PRO_1M": 30,
+
+    "GEMINI_PRO_1M": 10,
+    "PERPLEXITY_PRO_1M": 12,
+    "CURSOR_PRO_1M": 15,
+
+    "AI_BUNDLE_1M": 30,
+
+    # 兼容旧产品
     "GPT": 20,
     "VIP": 20,
     "CLAUDE": 20,
@@ -30,16 +47,22 @@ def _get_order_by_order_no(db: Session, order_no: str) -> Order:
     return order
 
 
+def _is_paid(status: str | None) -> bool:
+    return str(status or "").lower() in {"finished", "paid", "completed", "success"}
+
+
 @router.post("/checkout")
 def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)):
     order = _get_order_by_order_no(db, payload.order_no)
 
-    if order.payment_status == "finished":
+    if _is_paid(order.payment_status):
         raise HTTPException(status_code=400, detail="Order already paid")
 
-    # 🔥 强制写入 20 USD（避免最小金额问题）
-    if not hasattr(order, "amount_usd") or not order.amount_usd:
-        order.amount_usd = PRICE_MAP.get(order.product_code, 20)
+    product_code = str(order.product_code or "").upper()
+    amount_usd = PRICE_MAP_USD.get(product_code, 20)
+
+    # 兼容 nowpayments_service.py 读取 order.amount_usd
+    order.amount_usd = amount_usd
 
     try:
         invoice = create_invoice(order=order, pay_currency=payload.pay_currency)
@@ -49,6 +72,7 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail=str(e))
 
     order.payment_status = "waiting"
+    order.status = "pending_payment"
 
     external_id = (
         invoice.get("id")
@@ -56,20 +80,24 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
         or invoice.get("payment_id")
     )
 
-    if external_id:
+    if external_id and hasattr(order, "external_payment_id"):
         order.external_payment_id = str(external_id)
 
     db.add(order)
     db.commit()
     db.refresh(order)
 
+    invoice_url = invoice.get("invoice_url") or invoice.get("url")
+
     return {
         "provider": "nowpayments",
         "order_no": order.order_no,
         "payment_status": order.payment_status,
         "invoice_id": invoice.get("id") or invoice.get("invoice_id"),
-        "invoice_url": invoice.get("invoice_url") or invoice.get("url"),
+        "invoice_url": invoice_url,
+        "payment_url": invoice_url,
         "pay_currency": payload.pay_currency,
+        "amount_usd": amount_usd,
         "raw": invoice,
     }
 
