@@ -1,52 +1,181 @@
-from fastapi import APIRouter, Request
 import json
-import hmac
-import hashlib
-import os
+from typing import Optional
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from starlette.requests import ClientDisconnect
 
-NOWPAYMENTS_IPN_SECRET = os.getenv("NOWPAYMENTS_IPN_SECRET", "")
+from app.core.db import get_db
+from app.models.entities import Order
+from app.services.nowpayments_service import verify_ipn_signature
+
+router = APIRouter(tags=["webhooks"])
+
+
+class MockPaymentRequest(BaseModel):
+    order_no: str
+
+
+def _normalize_payment_status(raw_status: Optional[str]) -> str:
+    if not raw_status:
+        return "waiting"
+
+    s = str(raw_status).lower().strip()
+
+    if s in {
+        "finished",
+        "confirmed",
+        "paid",
+        "success",
+        "partially_paid",
+    }:
+        return "finished"
+
+    if s in {
+        "failed",
+        "expired",
+        "cancelled",
+        "canceled",
+        "refunded",
+    }:
+        return "failed"
+
+    return "waiting"
+
+
+def _mark_order_paid_processing(db: Session, order: Order):
+    """
+    纯代开通模式：
+    支付成功后，只进入待开通/处理中。
+    不发卡密、不扣库存、不自动发账号。
+    """
+    order.payment_status = "paid"
+    order.status = "paid"
+    order.delivery_status = "processing"
+
+    if not order.delivery_content:
+        order.delivery_content = "已确认收款，订单已进入代开通流程，请等待开通完成通知。"
+
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    return {
+        "ok": True,
+        "order_no": order.order_no,
+        "payment_status": order.payment_status,
+        "status": order.status,
+        "delivery_status": order.delivery_status,
+        "delivery_content": order.delivery_content,
+    }
+
+
+@router.post("/webhooks/mock-payment")
+def mock_payment(payload: MockPaymentRequest, db: Session = Depends(get_db)):
+    """
+    免费测试接口：
+    不用真实付款，直接把订单改成 paid + processing。
+    """
+    order = db.query(Order).filter_by(order_no=payload.order_no).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="order not found")
+
+    result = _mark_order_paid_processing(db, order)
+
+    return {
+        "msg": "mock paid + processing",
+        "result": result,
+    }
+
 
 @router.post("/webhooks/nowpayments")
-async def nowpayments_webhook(request: Request):
+async def nowpayments_webhook(
+    request: Request,
+    x_nowpayments_sig: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """
+    NOWPayments IPN 回调：
+    只负责确认付款并把订单进入代开通流程。
+    """
+
     try:
-        # ✅ 用 stream 方式读取（关键修复）
         body_bytes = b""
+
         async for chunk in request.stream():
             body_bytes += chunk
 
-        raw_body = body_bytes.decode()
+    except ClientDisconnect:
+        return {
+            "ok": False,
+            "error": "client disconnected while reading webhook body",
+        }
 
-        data = json.loads(raw_body)
+    if not body_bytes:
+        raise HTTPException(status_code=400, detail="Empty webhook body")
 
-        # ===== 验证签名 =====
-        received_sig = request.headers.get("x-nowpayments-sig")
+    try:
+        data = json.loads(body_bytes.decode("utf-8") or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-        if NOWPAYMENTS_IPN_SECRET:
-            expected_sig = hmac.new(
-                NOWPAYMENTS_IPN_SECRET.encode(),
-                raw_body.encode(),
-                hashlib.sha512
-            ).hexdigest()
+    if not verify_ipn_signature(body_bytes, x_nowpayments_sig):
+        raise HTTPException(status_code=401, detail="Invalid IPN signature")
 
-            if received_sig != expected_sig:
-                print("❌ IPN 签名验证失败")
-                return {"status": "error"}
+    order_no = data.get("order_id")
 
-        # ===== 处理支付 =====
-        payment_status = data.get("payment_status")
-        order_id = data.get("order_id")
+    if not order_no:
+        raise HTTPException(status_code=400, detail="Missing order_id")
 
-        print("✅ 收到回调:", data)
+    order = db.query(Order).filter(Order.order_no == str(order_no)).first()
 
-        if payment_status in ["finished", "confirmed"]:
-            from app.services.orders import mark_order_paid
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
 
-            mark_order_paid(order_id)
+    external_id = (
+        data.get("payment_id")
+        or data.get("invoice_id")
+        or data.get("id")
+    )
 
-        return {"status": "ok"}
+    if external_id and hasattr(order, "external_payment_id"):
+        order.external_payment_id = str(external_id)
 
-    except Exception as e:
-        print("❌ webhook error:", str(e))
-        return {"status": "error"}
+    payment_status = _normalize_payment_status(data.get("payment_status"))
+
+    if payment_status == "finished":
+        result = _mark_order_paid_processing(db, order)
+
+        return {
+            "ok": True,
+            "source": "nowpayments",
+            "order_no": order.order_no,
+            "payment_status": order.payment_status,
+            "status": order.status,
+            "delivery_status": order.delivery_status,
+            "result": result,
+        }
+
+    if payment_status == "failed":
+        order.payment_status = "failed"
+        order.status = "failed"
+
+    else:
+        order.payment_status = "waiting"
+        if order.status not in {"paid", "completed"}:
+            order.status = "pending_payment"
+
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    return {
+        "ok": True,
+        "source": "nowpayments",
+        "order_no": order.order_no,
+        "payment_status": order.payment_status,
+        "status": order.status,
+        "delivery_status": order.delivery_status,
+    }
