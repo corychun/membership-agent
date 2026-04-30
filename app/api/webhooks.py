@@ -23,10 +23,10 @@ def _normalize_payment_status(raw_status: Optional[str]) -> str:
 
     s = str(raw_status).lower().strip()
 
-    if s in {"finished", "confirmed", "paid", "success"}:
+    if s in {"finished", "confirmed", "paid", "success", "partially_paid"}:
         return "finished"
 
-    if s in {"failed", "expired", "cancelled", "canceled"}:
+    if s in {"failed", "expired", "cancelled", "canceled", "refunded"}:
         return "failed"
 
     return "waiting"
@@ -41,7 +41,7 @@ def mock_payment(payload: MockPaymentRequest, db: Session = Depends(get_db)):
     result = mark_paid_and_deliver(db, order)
 
     return {
-        "msg": "paid + delivered",
+        "msg": "paid + queued/delivered",
         "result": result,
     }
 
@@ -73,7 +73,7 @@ async def nowpayments_webhook(
     payment_status = _normalize_payment_status(data.get("payment_status"))
 
     external_id = data.get("payment_id") or data.get("invoice_id") or data.get("id")
-    if external_id:
+    if external_id and hasattr(order, "external_payment_id"):
         order.external_payment_id = str(external_id)
 
     if payment_status == "finished":
