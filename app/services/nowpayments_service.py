@@ -27,10 +27,14 @@ def _sort_object(obj: Any) -> Any:
 
 
 def create_invoice(order, pay_currency: str = "usdttrc20") -> dict:
-    url = f"{settings.nowpayments_base_url}/invoice"
+    url = f"{settings.nowpayments_base_url.rstrip('/')}/invoice"
+
+    amount_usd = getattr(order, "amount_usd", None)
+    if not amount_usd:
+        amount_usd = 20
 
     payload = {
-        "price_amount": float(order.amount_usd),
+        "price_amount": float(amount_usd),
         "price_currency": "usd",
         "pay_currency": pay_currency,
         "order_id": str(order.order_no),
