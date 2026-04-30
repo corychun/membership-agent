@@ -14,6 +14,22 @@ from app.models.entities import Order
 router = APIRouter(tags=["orders"])
 
 
+ACTIVATION_PRODUCTS = {
+    "GPT_ACTIVATE_1M",
+    "GPT_ACTIVATE_3M",
+    "GPT_TEAM_1M",
+    "CLAUDE_ACTIVATE_1M",
+    "CLAUDE_ACTIVATE_3M",
+    "MJ_BASIC_1M",
+    "MJ_STANDARD_1M",
+    "MJ_PRO_1M",
+    "GEMINI_PRO_1M",
+    "PERPLEXITY_PRO_1M",
+    "CURSOR_PRO_1M",
+    "AI_BUNDLE_1M",
+}
+
+
 class CreateOrderRequest(BaseModel):
     product_code: str
     customer_email: Optional[EmailStr] = None
@@ -30,6 +46,10 @@ def get_customer_email(data: CreateOrderRequest) -> str:
     if not email:
         raise HTTPException(status_code=400, detail="缺少邮箱")
     return str(email)
+
+
+def is_activation_product(product_code: str) -> bool:
+    return product_code.upper().strip() in ACTIVATION_PRODUCTS or "ACTIVATE" in product_code.upper()
 
 
 def get_inventory_meta(db: Session):
@@ -72,7 +92,7 @@ def available_where(meta) -> str:
         )
 
     if meta["used_col"]:
-        parts.append("(is_used = false OR is_used IS NULL)")
+        parts.append("(is_used = false OR is_used IS NULL OR is_used = 0)")
 
     if not parts:
         return "1=1"
@@ -98,13 +118,15 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
     product_code = data.product_code.upper().strip()
     customer_email = get_customer_email(data)
 
-    stock_count = get_available_stock_count(db, product_code)
+    stock_count = None
 
-    if stock_count <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{product_code} 库存不足，暂时无法购买",
-        )
+    if not is_activation_product(product_code):
+        stock_count = get_available_stock_count(db, product_code)
+        if stock_count <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{product_code} 库存不足，暂时无法购买",
+            )
 
     order_no = make_order_no()
 
@@ -132,6 +154,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
         "stock_available": stock_count,
+        "is_activation_product": is_activation_product(product_code),
     }
 
 
@@ -163,3 +186,8 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "delivery_content": order.delivery_content,
         "created_at": str(order.created_at) if order.created_at else None,
     }
+
+
+@router.get("/orders/query")
+def query_order(order_no: str, db: Session = Depends(get_db)):
+    return get_order(order_no=order_no, db=db)
