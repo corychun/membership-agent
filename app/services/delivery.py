@@ -8,6 +8,27 @@ from app.models.entities import DeliveryRecord, Order
 from app.services.email_service import send_delivery_email
 
 
+ACTIVATION_PRODUCTS = {
+    "GPT_ACTIVATE_1M",
+    "GPT_ACTIVATE_3M",
+    "GPT_TEAM_1M",
+    "CLAUDE_ACTIVATE_1M",
+    "CLAUDE_ACTIVATE_3M",
+    "MJ_BASIC_1M",
+    "MJ_STANDARD_1M",
+    "MJ_PRO_1M",
+    "GEMINI_PRO_1M",
+    "PERPLEXITY_PRO_1M",
+    "CURSOR_PRO_1M",
+    "AI_BUNDLE_1M",
+}
+
+
+def is_activation_product(product_code: str | None) -> bool:
+    p = str(product_code or "").upper()
+    return p in ACTIVATION_PRODUCTS or "ACTIVATE" in p
+
+
 def _get_inventory_table(db: Session) -> Dict[str, Any]:
     inspector = inspect(db.bind)
     tables = inspector.get_table_names()
@@ -24,13 +45,13 @@ def _get_inventory_table(db: Session) -> Dict[str, Any]:
     cols = {c["name"] for c in inspector.get_columns(table_name)}
 
     product_col = "product_code" if "product_code" in cols else "product"
-    content_col = "item_value" if "item_value" in cols else "content"
+    content_col = "item_value" if "item_value" in cols else ("content" if "content" in cols else "code")
 
     if product_col not in cols:
         raise Exception("库存表缺少 product_code 或 product 字段")
 
     if content_col not in cols:
-        raise Exception("库存表缺少 item_value 或 content 字段")
+        raise Exception("库存表缺少 item_value、content 或 code 字段")
 
     return {
         "table": table_name,
@@ -49,7 +70,7 @@ def _available_where(meta: Dict[str, Any]) -> str:
         parts.append("LOWER(COALESCE(status, 'available')) IN ('available', 'new', 'unused')")
 
     if meta["used_col"]:
-        parts.append("(is_used = false OR is_used IS NULL)")
+        parts.append("(is_used = false OR is_used IS NULL OR is_used = 0)")
 
     if not parts:
         return "1=1"
@@ -94,6 +115,9 @@ def _mark_inventory_used(db: Session, item_id: int, order: Order):
     if "assigned_order_id" in cols:
         updates.append("assigned_order_id = :order_id")
 
+    if "order_id" in cols:
+        updates.append("order_id = :order_id_int")
+
     if "assigned_at" in cols:
         updates.append("assigned_at = :now")
 
@@ -112,15 +136,12 @@ def _mark_inventory_used(db: Session, item_id: int, order: Order):
     db.execute(sql, {
         "item_id": item_id,
         "order_id": str(order.id),
+        "order_id_int": order.id,
         "now": datetime.utcnow(),
     })
 
 
-def _create_delivery_record_safe(db: Session, order: Order, content: str):
-    """
-    兼容你当前 DeliveryRecord 模型：
-    只给模型支持的字段赋值，避免 delivered_at/status 这类字段不存在时报错。
-    """
+def _create_delivery_record_safe(db: Session, order: Order, content: str, status: str = "delivered"):
     mapper_cols = DeliveryRecord.__mapper__.columns.keys()
 
     kwargs = {}
@@ -129,7 +150,7 @@ def _create_delivery_record_safe(db: Session, order: Order, content: str):
         kwargs["order_id"] = order.id
 
     if "status" in mapper_cols:
-        kwargs["status"] = "delivered"
+        kwargs["status"] = status
 
     if "content" in mapper_cols:
         kwargs["content"] = content
@@ -151,9 +172,65 @@ def _create_delivery_record_safe(db: Session, order: Order, content: str):
         db.add(record)
 
 
+def _queue_activation_order(db: Session, order: Order):
+    content = "已确认收款，订单已进入代开通流程。请等待处理完成通知。"
+
+    order.payment_status = "paid"
+    order.status = "paid"
+    order.delivery_status = "processing"
+    order.delivery_content = content
+
+    _create_delivery_record_safe(db, order, content, status="processing")
+
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    email_result = None
+    email_sent = False
+    email_error = None
+
+    if order.customer_email:
+        try:
+            email_result = send_delivery_email(
+                target_email=order.customer_email,
+                product_code=order.product_code,
+                order_no=order.order_no,
+                delivery_content=content,
+            )
+            email_sent = True
+        except Exception as e:
+            email_error = str(e)
+
+    return {
+        "delivered": False,
+        "queued": True,
+        "activation_order": True,
+        "content": content,
+        "email_sent": email_sent,
+        "email_result": email_result,
+        "email_error": email_error,
+        "message": "activation order queued",
+    }
+
+
 def deliver_order(db: Session, order: Order):
     if not order:
         raise ValueError("order not found")
+
+    if is_activation_product(order.product_code):
+        if str(order.delivery_status or "").lower() in {"processing", "delivered", "completed", "sent"}:
+            return {
+                "delivered": False,
+                "queued": True,
+                "idempotent": True,
+                "activation_order": True,
+                "content": order.delivery_content,
+                "email_sent": False,
+                "message": "activation order already queued or delivered",
+            }
+
+        return _queue_activation_order(db, order)
 
     if str(order.delivery_status or "").lower() in {"delivered", "completed", "sent"}:
         return {
@@ -177,7 +254,7 @@ def deliver_order(db: Session, order: Order):
     order.delivery_content = content
     order.status = "completed"
 
-    _create_delivery_record_safe(db, order, content)
+    _create_delivery_record_safe(db, order, content, status="delivered")
 
     db.add(order)
     db.commit()
