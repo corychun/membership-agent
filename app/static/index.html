@@ -118,7 +118,7 @@ select option{color:#111827}
       <div class="qr-box" id="qrBox"></div>
       <div class="status-box">
         <strong>付款说明</strong><br>
-        微信/支付宝付款后，请保留订单号。后台确认后会进入代开通流程，完成后会发送通知。
+        微信/支付宝付款后，请保留订单号。选择 USDT 时会生成 NOWPayments 支付页面；付款成功后系统会自动收到回调并更新订单。
       </div>
     </div>
   </section>
@@ -145,7 +145,7 @@ select option{color:#111827}
       <h3>常见问题</h3>
       <div class="faq">
         <div class="faq-item"><strong>还卖独享账号吗？</strong><p>不卖。本站只提供代开通服务。</p></div>
-        <div class="faq-item"><strong>多久完成？</strong><p>付款确认后进入人工开通流程，完成后会通知。</p></div>
+        <div class="faq-item"><strong>USDT 是自动确认吗？</strong><p>是。通过 NOWPayments 付款成功后，系统会自动接收回调并更新订单状态。</p></div>
         <div class="faq-item"><strong>为什么不卖共享版？</strong><p>共享版多人使用，容易掉线、风控和售后，本站已移除。</p></div>
         <div class="faq-item"><strong>遇到问题怎么办？</strong><p>右下角点击在线客服，提供订单号即可咨询。</p></div>
       </div>
@@ -157,22 +157,22 @@ select option{color:#111827}
 
 <script>
 const PRODUCTS = [
-  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,period:"1个月",badge:"🔥 主推",desc:"使用你的邮箱开通会员，风险最低，需人工处理。",noInventory:true},
-  {code:"GPT_ACTIVATE_3M",category:"ChatGPT",name:"ChatGPT Plus 季卡代开通",price:599,period:"3个月",badge:"更划算",desc:"长期使用更省心，适合稳定需求。",noInventory:true},
-  {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,period:"1个月",badge:"团队版",desc:"适合团队协作和高频使用，需人工处理。",noInventory:true},
+  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,usd:20,period:"1个月",badge:"🔥 主推",desc:"使用你的邮箱开通会员，风险最低，需人工处理。",noInventory:true},
+  {code:"GPT_ACTIVATE_3M",category:"ChatGPT",name:"ChatGPT Plus 季卡代开通",price:599,usd:55,period:"3个月",badge:"更划算",desc:"长期使用更省心，适合稳定需求。",noInventory:true},
+  {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,usd:25,period:"1个月",badge:"团队版",desc:"适合团队协作和高频使用，需人工处理。",noInventory:true},
 
-  {code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 代开通",price:230,period:"1个月",badge:"更稳定",desc:"使用你的邮箱开通，适合长期稳定使用。",noInventory:true},
-  {code:"CLAUDE_ACTIVATE_3M",category:"Claude",name:"Claude Pro 季卡代开通",price:629,period:"3个月",badge:"长期稳定",desc:"长期长文处理需求，减少续费麻烦。",noInventory:true},
+  {code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 代开通",price:230,usd:20,period:"1个月",badge:"更稳定",desc:"使用你的邮箱开通，适合长期稳定使用。",noInventory:true},
+  {code:"CLAUDE_ACTIVATE_3M",category:"Claude",name:"Claude Pro 季卡代开通",price:629,usd:58,period:"3个月",badge:"长期稳定",desc:"长期长文处理需求，减少续费麻烦。",noInventory:true},
 
-  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic 代开通",price:120,period:"1个月",badge:"AI绘画入门",desc:"适合低频出图和基础设计。",noInventory:true},
-  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard 代开通",price:180,period:"1个月",badge:"绘画推荐",desc:"适合设计素材、海报、创意图。",noInventory:true},
-  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro 代开通",price:300,period:"1个月",badge:"高频创作",desc:"适合设计师和高频出图用户。",noInventory:true},
+  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic 代开通",price:120,usd:12,period:"1个月",badge:"AI绘画入门",desc:"适合低频出图和基础设计。",noInventory:true},
+  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard 代开通",price:180,usd:18,period:"1个月",badge:"绘画推荐",desc:"适合设计素材、海报、创意图。",noInventory:true},
+  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro 代开通",price:300,usd:30,period:"1个月",badge:"高频创作",desc:"适合设计师和高频出图用户。",noInventory:true},
 
-  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced 代开通",price:99,period:"1个月",badge:"Google AI",desc:"适合多模态和搜索增强使用。",noInventory:true},
-  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro 代开通",price:120,period:"1个月",badge:"搜索问答",desc:"适合资料检索、论文搜索、研究。",noInventory:true},
-  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro 代开通",price:150,period:"1个月",badge:"编程助手",desc:"适合程序员 AI 编程开发。",noInventory:true},
+  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced 代开通",price:99,usd:10,period:"1个月",badge:"Google AI",desc:"适合多模态和搜索增强使用。",noInventory:true},
+  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro 代开通",price:120,usd:12,period:"1个月",badge:"搜索问答",desc:"适合资料检索、论文搜索、研究。",noInventory:true},
+  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro 代开通",price:150,usd:15,period:"1个月",badge:"编程助手",desc:"适合程序员 AI 编程开发。",noInventory:true},
 
-  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶代开通",price:300,period:"1个月",badge:"组合优惠",desc:"ChatGPT / Claude / MJ 等组合套餐。",noInventory:true}
+  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶代开通",price:300,usd:30,period:"1个月",badge:"组合优惠",desc:"ChatGPT / Claude / MJ 等组合套餐。",noInventory:true}
 ];
 
 const PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
@@ -181,7 +181,6 @@ const CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
 let activeCategory = "ChatGPT";
 let selectedProduct = "GPT_ACTIVATE_1M";
 let selectedPayMethod = "wechat";
-let stockMap = {};
 
 const buyBtn = document.getElementById("buyBtn");
 const statusBox = document.getElementById("statusBox");
@@ -263,7 +262,7 @@ function updateQR(){
   }
 
   if(selectedPayMethod === "usdt"){
-    qrBox.innerHTML = `<strong>USDT / TRC20</strong><p>当前套餐：${p.name}</p><p>点击创建订单后，系统会生成 USDT 支付地址。</p>`;
+    qrBox.innerHTML = `<strong>USDT / TRC20</strong><p>当前套餐：${p.name}</p><p>USDT 金额按支付页面为准。</p><p>点击创建订单后，系统会生成 NOWPayments 自动支付页面。</p>`;
   }
 }
 
@@ -293,7 +292,51 @@ async function buy(){
 
     const orderNo = data.order_no;
 
-    qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":selectedPayMethod==="alipay"?"支付宝":"USDT"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认。</p>`;
+    if(selectedPayMethod === "usdt"){
+      statusBox.innerHTML = "USDT 支付页面生成中...";
+
+      const payRes = await fetch("/payments/checkout", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          order_no: orderNo,
+          pay_currency: "usdttrc20"
+        })
+      });
+
+      const payData = await payRes.json();
+
+      if(!payRes.ok) throw new Error(payData.detail || "USDT 支付创建失败");
+
+      const payUrl = payData.invoice_url || payData.payment_url || payData.url || "";
+
+      qrBox.innerHTML = `
+        <strong>USDT / TRC20 自动支付</strong>
+        <p>订单号：${orderNo}</p>
+        <p>套餐：${p.name}</p>
+        <p>请点击下面按钮进入 NOWPayments 支付页面完成付款。</p>
+        <p><a href="${payUrl}" target="_blank" style="color:#86efac;font-weight:bold;">打开 USDT 支付页面</a></p>
+      `;
+
+      statusBox.innerHTML = `
+        <div class="ok">
+          <strong>订单创建成功</strong><br>
+          订单号：${orderNo}<br>
+          套餐：${p.name}<br>
+          USDT 自动支付页面已生成。付款成功后系统会自动更新订单状态。
+        </div>
+      `;
+
+      if(payUrl){
+        window.open(payUrl, "_blank");
+      }
+
+      buyBtn.disabled = false;
+      buyBtn.innerText = "继续创建订单";
+      return;
+    }
+
+    qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":"支付宝"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认。</p>`;
 
     statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>该套餐为人工代开通服务，付款后请等待处理。</div>`;
 
