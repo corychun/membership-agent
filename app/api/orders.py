@@ -34,31 +34,12 @@ class CreateOrderRequest(BaseModel):
     product_code: str
     customer_email: Optional[EmailStr] = None
     email: Optional[EmailStr] = None
-    # 用户在前端选择的支付方式：wechat / alipay / usdt
-    payment_method: Optional[str] = "wechat"
 
+    # 支付方式：前端会传 wechat / alipay / usdt。
+    # paymentMethod 是为了兼容有些前端写法，不影响原有接口。
+    payment_method: Optional[str] = None
+    paymentMethod: Optional[str] = None
 
-
-
-def normalize_payment_method(method: Optional[str]) -> str:
-    value = str(method or "wechat").strip().lower()
-    mapping = {
-        "wx": "wechat",
-        "wxpay": "wechat",
-        "wechat_pay": "wechat",
-        "weixin": "wechat",
-        "ali": "alipay",
-        "ali_pay": "alipay",
-        "alipay_pay": "alipay",
-        "crypto": "usdt",
-        "nowpayments": "usdt",
-        "usdttrc20": "usdt",
-        "trc20": "usdt",
-    }
-    value = mapping.get(value, value)
-    if value not in {"wechat", "alipay", "usdt"}:
-        value = "wechat"
-    return value
 
 def make_order_no() -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
@@ -72,8 +53,78 @@ def get_customer_email(data: CreateOrderRequest) -> str:
     return str(email)
 
 
+def normalize_payment_method(method: Optional[str]) -> str:
+    """统一保存支付方式，避免支付宝订单被默认成微信。"""
+    value = str(method or "").strip().lower()
+
+    if value in ["alipay", "ali", "支付宝", "zfb"]:
+        return "alipay"
+    if value in ["usdt", "crypto", "nowpayments", "nowpayments_usdt"]:
+        return "usdt"
+    if value in ["wechat", "wechat_pay", "wxpay", "weixin", "微信", "微信支付"]:
+        return "wechat"
+
+    # 兼容中文或混合字符串
+    if "支付宝" in value or "alipay" in value:
+        return "alipay"
+    if "usdt" in value or "crypto" in value or "nowpayments" in value:
+        return "usdt"
+    if "微信" in value or "wechat" in value or "wx" in value:
+        return "wechat"
+
+    # 没传时默认微信，保持你原来的人工收款默认流程。
+    return "wechat"
+
+
+def get_payment_method(data: CreateOrderRequest) -> str:
+    return normalize_payment_method(data.payment_method or data.paymentMethod)
+
+
 def is_activation_product(product_code: str) -> bool:
     return product_code.upper().strip() in ACTIVATION_PRODUCTS or "ACTIVATE" in product_code.upper()
+
+
+def ensure_payment_method_column(db: Session) -> None:
+    """确保 orders.payment_method 存在。
+
+    只做兼容兜底：如果数据库已经加过字段，不会改变任何数据。
+    如果当前数据库不支持该语法，失败也不会影响原有下单流程。
+    """
+    try:
+        db.execute(
+            text(
+                "ALTER TABLE orders "
+                "ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'wechat'"
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def set_order_payment_method(db: Session, order_no: str, payment_method: str) -> None:
+    """用原生 SQL 写入 payment_method，避免旧版 Order 模型没有该字段时报错。"""
+    try:
+        db.execute(
+            text("UPDATE orders SET payment_method = :payment_method WHERE order_no = :order_no"),
+            {"payment_method": payment_method, "order_no": order_no},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def read_order_payment_method(db: Session, order_no: str) -> Optional[str]:
+    try:
+        row = db.execute(
+            text("SELECT payment_method FROM orders WHERE order_no = :order_no"),
+            {"order_no": order_no},
+        ).mappings().first()
+        if not row:
+            return None
+        return row.get("payment_method")
+    except Exception:
+        return None
 
 
 def get_inventory_meta(db: Session):
@@ -141,7 +192,9 @@ def get_available_stock_count(db: Session, product_code: str) -> int:
 def create_order_logic(data: CreateOrderRequest, db: Session):
     product_code = data.product_code.upper().strip()
     customer_email = get_customer_email(data)
-    payment_method = normalize_payment_method(data.payment_method)
+    payment_method = get_payment_method(data)
+
+    ensure_payment_method_column(db)
 
     stock_count = None
 
@@ -159,7 +212,6 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         order_no=order_no,
         product_code=product_code,
         customer_email=customer_email,
-        payment_method=payment_method,
         status="pending_payment",
         payment_status="pending",
         delivery_status="pending",
@@ -171,12 +223,14 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
     db.commit()
     db.refresh(order)
 
+    set_order_payment_method(db, order_no=order.order_no, payment_method=payment_method)
+
     return {
         "id": order.id,
         "order_no": order.order_no,
         "product_code": order.product_code,
         "customer_email": order.customer_email,
-        "payment_method": order.payment_method,
+        "payment_method": payment_method,
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
@@ -207,7 +261,7 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "order_no": order.order_no,
         "product_code": order.product_code,
         "customer_email": order.customer_email,
-        "payment_method": order.payment_method,
+        "payment_method": read_order_payment_method(db, order_no),
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
