@@ -283,7 +283,7 @@ async function buy(){
     const res = await fetch("/orders", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({product_code:selectedProduct, customer_email:email})
+      body:JSON.stringify({product_code:selectedProduct, customer_email:email, payment_method:selectedPayMethod})
     });
 
     const data = await res.json();
