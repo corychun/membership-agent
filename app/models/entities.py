@@ -12,6 +12,9 @@ class Order(Base):
     product_code = Column(String(100))
     customer_email = Column(String(255))
 
+    # 用户实际选择的支付方式：wechat / alipay / usdt
+    payment_method = Column(String(50), default="wechat")
+
     payment_status = Column(String(50), default="pending")
     status = Column(String(50), default="pending_payment")
     delivery_status = Column(String(50), default="pending")
