@@ -1,543 +1,104 @@
-import traceback
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from datetime import datetime
 
-from app.core.admin_auth import admin_to_dict, normalize_role, require_permission
 from app.core.db import get_db
-from app.core.security import create_admin_token, hash_password, verify_password
-from app.models.entities import AdminUser, DeliveryRecord, Order
-from app.services.delivery import mark_paid_and_deliver
-from app.services.email_service import send_delivery_email, send_email
+from app.models.entities import Order
+from app.services.email_service import send_email
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter()
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+# ✅ 管理员确认收款（进入处理中）
+@router.post("/admin/confirm-payment/{order_id}")
+def confirm_payment(order_id: str, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.order_id == order_id).first()
 
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
 
-class ConfirmPaidRequest(BaseModel):
-    order_no: str
-
-
-class BulkConfirmPaidRequest(BaseModel):
-    order_nos: list[str]
-
-
-class ManualCompleteRequest(BaseModel):
-    order_no: str
-    delivery_content: str
-    send_email: bool = True
-
-
-class AutoManualCompleteRequest(BaseModel):
-    order_no: str
-    send_email: bool = True
-
-
-class CreateAdminRequest(BaseModel):
-    username: str
-    password: str
-    role: str = "support"
-
-
-class UpdateAdminRequest(BaseModel):
-    password: Optional[str] = None
-    role: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-def norm(value):
-    return str(value or "").lower()
-
-
-def is_delivered(order: Order) -> bool:
-    return norm(order.delivery_status) in {"delivered", "completed", "success", "sent"}
-
-
-def can_manual_confirm(order: Order) -> bool:
-    if is_delivered(order):
-        return False
-    return norm(order.payment_status) in {
-        "waiting", "pending", "pending_payment", "unpaid", "paid", "finished", "confirmed", "", "none",
-    }
-
-
-def product_display_name(product_code: str) -> str:
-    code = str(product_code or "").upper()
-    if "GPT" in code or "CHATGPT" in code:
-        return "ChatGPT Plus"
-    if "CLAUDE" in code:
-        return "Claude Pro"
-    if "MJ" in code or "MIDJOURNEY" in code:
-        return "Midjourney"
-    if "GEMINI" in code:
-        return "Gemini Advanced"
-    if "PERPLEXITY" in code:
-        return "Perplexity Pro"
-    if "CURSOR" in code:
-        return "Cursor Pro"
-    return str(product_code or "会员服务")
-
-
-
-
-def is_activation_product(product_code: str | None) -> bool:
-    code = str(product_code or "").upper()
-    activation_codes = {
-        "GPT_ACTIVATE_1M",
-        "GPT_ACTIVATE_3M",
-        "GPT_TEAM_1M",
-        "CLAUDE_ACTIVATE_1M",
-        "CLAUDE_ACTIVATE_3M",
-        "MJ_BASIC_1M",
-        "MJ_STANDARD_1M",
-        "MJ_PRO_1M",
-        "GEMINI_PRO_1M",
-        "PERPLEXITY_PRO_1M",
-        "CURSOR_PRO_1M",
-        "AI_BUNDLE_1M",
-    }
-    return code in activation_codes or "ACTIVATE" in code
-
-
-def send_processing_email(order: Order) -> dict:
-    """
-    确认收款后发送“处理中”邮件，避免客户误以为已经完成开通。
-    一键完成/手动完成仍然走 send_delivery_email，发送“订单已完成”邮件。
-    """
-    subject = f"您的订单正在处理中：{order.order_no}"
-    product_name = product_display_name(order.product_code)
-    text_body = (
-        "您好，您的订单已成功支付，我们已收到款项。\n\n"
-        f"订单号：{order.order_no}\n"
-        f"产品套餐：{product_name}\n"
-        "当前状态：正在处理中\n\n"
-        "我们正在为您进行开通操作，请耐心等待。开通完成后，您将收到新的完成通知邮件。\n\n"
-        "感谢您的支持。"
-    )
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #111827; line-height: 1.7;">
-        <div style="max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px;">
-          <h2 style="margin-top: 0; color: #111827;">您的订单正在处理中</h2>
-          <p>您好，您的订单已成功支付，我们已收到款项。</p>
-          <p><strong>订单号：</strong>{order.order_no}</p>
-          <p><strong>产品套餐：</strong>{product_name}</p>
-          <p><strong>当前状态：</strong>正在处理中</p>
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
-            我们正在为您进行开通操作，请耐心等待。开通完成后，您将收到新的完成通知邮件。
-          </div>
-          <p style="color: #6b7280; font-size: 13px; margin-top: 20px;">感谢您的支持。</p>
-        </div>
-      </body>
-    </html>
-    """
-    return send_email(
-        to_email=order.customer_email,
-        subject=subject,
-        text_body=text_body,
-        html_body=html_body,
-    )
-
-
-def mark_activation_order_processing(db: Session, order: Order) -> dict:
-    """
-    代开通商品确认收款后，只进入“处理中”，不发送已完成邮件。
-    后续点击“一键完成/手动填写”时才会改为 delivered 并发送完成邮件。
-    """
-    content = "已确认收款，订单已进入代开通流程。请等待处理完成通知。"
-
+    # 更新订单状态
     order.payment_status = "paid"
     order.status = "paid"
     order.delivery_status = "processing"
-    order.delivery_content = content
+    order.updated_at = datetime.utcnow()
 
-    if hasattr(order, "paid_at"):
-        order.paid_at = datetime.utcnow()
-
-    record = DeliveryRecord(
-        order_id=order.id,
-        status="processing",
-        content=content,
-        created_at=datetime.utcnow(),
-    )
-    db.add(record)
-    db.add(order)
     db.commit()
-    db.refresh(order)
 
-    email_sent = False
-    email_error = None
-    email_result = None
+    # ✅ 发送“处理中”邮件（已优化版本）
+    subject = f"您的订单正在处理中：{order.order_id}"
 
-    if order.customer_email:
-        try:
-            email_result = send_processing_email(order)
-            email_sent = True
-        except Exception as e:
-            email_error = str(e)
+    html_content = f"""
+    <h2>您的订单正在处理中</h2>
 
-    return {
-        "delivered": False,
-        "queued": True,
-        "activation_order": True,
-        "content": content,
-        "email_sent": email_sent,
-        "email_error": email_error,
-        "email_result": email_result,
-        "message": "activation order queued",
-    }
+    <p>您好，您的订单已成功支付，我们已收到款项。</p>
 
-def build_auto_delivery_content(order: Order) -> str:
+    <p><b>订单号：</b>{order.order_id}</p>
+    <p><b>产品套餐：</b>{order.product_name}</p>
+    <p><b>当前状态：</b>正在处理中</p>
+
+    <p>
+    我们正在为您进行开通操作，请耐心等待，一般会在短时间内完成。<br>
+    <b style="color:red;">如超过30分钟未完成，请联系客服处理。</b>
+    </p>
+
+    <p>开通完成后，您将收到新的完成通知邮件。</p>
+
+    <p>感谢您的支持！</p>
     """
-    一键自动发货的交付内容。
-    业务规则：按中国用户常用时间显示，有效期从完成代开通当天起算 30 天，
-    到期日当天 23:59 前有效，避免因为 UTC/美国时间造成“看起来不足 30 天”。
-    """
-    beijing_tz = ZoneInfo("Asia/Shanghai")
-    now_cn = datetime.now(beijing_tz)
-    expire_at = (now_cn + timedelta(days=30)).replace(
-        hour=23, minute=59, second=0, microsecond=0
-    )
-    expire_text = expire_at.strftime("%Y-%m-%d %H:%M")
-    product_name = product_display_name(order.product_code)
-    return (
-        f"已为您账号开通 {product_name}，有效期至 {expire_text}（北京时间）。"
-        f"请登录原账号查看，如有问题请联系网站客服。"
-    )
+
+    try:
+        send_email(
+            to_email=order.email,
+            subject=subject,
+            html_content=html_content
+        )
+    except Exception as e:
+        print("邮件发送失败:", str(e))
+
+    return {"message": "已确认收款，订单进入处理中"}
 
 
-def complete_order_and_notify(
-    db: Session,
-    order: Order,
-    delivery_content: str,
-    send_email: bool = True,
-) -> dict:
-    order.payment_status = "paid"
+# ✅ 完成开通（发最终交付邮件）
+@router.post("/admin/complete-order/{order_id}")
+def complete_order(order_id: str, delivery_content: str, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
     order.status = "completed"
     order.delivery_status = "delivered"
     order.delivery_content = delivery_content
+    order.updated_at = datetime.utcnow()
 
-    record = DeliveryRecord(
-        order_id=order.id,
-        status="delivered",
-        content=delivery_content,
-        created_at=datetime.utcnow(),
-    )
-    db.add(record)
-    db.add(order)
     db.commit()
-    db.refresh(order)
 
-    email_sent = False
-    email_error = None
-    if send_email and order.customer_email:
-        try:
-            send_delivery_email(
-                target_email=order.customer_email,
-                product_code=order.product_code,
-                order_no=order.order_no,
-                delivery_content=delivery_content,
-            )
-            email_sent = True
-        except Exception as e:
-            email_error = str(e)
+    subject = f"订单已完成：{order.order_id}"
 
-    return {
-        "ok": True,
-        "msg": "代开通订单已完成",
-        "order_no": order.order_no,
-        "delivery_content": order.delivery_content,
-        "email_sent": email_sent,
-        "email_error": email_error,
-    }
+    html_content = f"""
+    <h2>订单已处理完成</h2>
 
+    <p>您好，您的订单已处理完成，详情如下：</p>
 
-def order_to_dict(o: Order):
-    return {
-        "id": o.id,
-        "order_no": o.order_no,
-        "product_code": o.product_code,
-        "customer_email": o.customer_email,
-        "payment_status": o.payment_status,
-        "status": o.status,
-        "delivery_status": o.delivery_status,
-        "delivery_content": o.delivery_content,
-        "payment_method": getattr(o, "payment_method", None),
-        "created_at": str(o.created_at) if o.created_at else None,
-        "can_confirm": can_manual_confirm(o),
-    }
+    <p><b>订单号：</b>{order.order_id}</p>
+    <p><b>产品套餐：</b>{order.product_name}</p>
 
+    <p><b>交付内容：</b></p>
+    <p style="background:#f5f5f5;padding:10px;border-radius:6px;">
+    {delivery_content}
+    </p>
 
-@router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    username = (payload.username or "").strip()
-    admin = db.query(AdminUser).filter(AdminUser.username == username).first()
-
-    if not admin or int(admin.is_active or 0) != 1 or not verify_password(payload.password, admin.password_hash):
-        raise HTTPException(status_code=401, detail="账号或密码错误")
-
-    admin.last_login_at = datetime.utcnow()
-    db.commit()
-    db.refresh(admin)
-
-    token = create_admin_token({"sub": admin.id, "username": admin.username, "role": admin.role})
-    return {"ok": True, "access_token": token, "token_type": "bearer", "admin": admin_to_dict(admin)}
-
-
-@router.get("/me")
-def me(current_admin: AdminUser = Depends(require_permission("orders:read"))):
-    return {"ok": True, "admin": admin_to_dict(current_admin)}
-
-
-@router.get("/orders")
-def list_orders(
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:read")),
-):
-    orders = db.query(Order).order_by(Order.id.desc()).limit(200).all()
-    return {"items": [order_to_dict(o) for o in orders]}
-
-
-@router.post("/orders/confirm-paid")
-def confirm_paid_and_deliver(
-    payload: ConfirmPaidRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
-):
-    order = db.query(Order).filter(Order.order_no == payload.order_no).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    if is_delivered(order):
-        return {"ok": True, "msg": "already delivered", "order_no": order.order_no, "delivery_content": order.delivery_content}
-
-    if not can_manual_confirm(order):
-        raise HTTPException(
-            status_code=400,
-            detail=f"当前状态不允许发货：payment_status={order.payment_status}, delivery_status={order.delivery_status}",
-        )
+    <p>感谢您的支持！</p>
+    """
 
     try:
-        if is_activation_product(order.product_code):
-            result = mark_activation_order_processing(db, order)
-            db.refresh(order)
-            return {
-                "ok": True,
-                "msg": "paid + processing",
-                "order_no": order.order_no,
-                "delivery_content": order.delivery_content,
-                "result": result,
-            }
-
-        result = mark_paid_and_deliver(db, order)
-        db.refresh(order)
-        return {"ok": True, "msg": "paid + delivered", "order_no": order.order_no, "delivery_content": order.delivery_content, "result": result}
-    except HTTPException:
-        db.rollback()
-        raise
+        send_email(
+            to_email=order.email,
+            subject=subject,
+            html_content=html_content
+        )
     except Exception as e:
-        db.rollback()
-        print("confirm_paid_and_deliver error:")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=400, detail=f"发货失败：{str(e)}")
+        print("邮件发送失败:", str(e))
 
-
-@router.post("/orders/confirm-paid-bulk")
-def confirm_paid_and_deliver_bulk(
-    payload: BulkConfirmPaidRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
-):
-    order_nos = []
-    seen = set()
-    for order_no in payload.order_nos or []:
-        value = (order_no or "").strip()
-        if value and value not in seen:
-            seen.add(value)
-            order_nos.append(value)
-
-    if not order_nos:
-        raise HTTPException(status_code=400, detail="请选择要确认的订单")
-    if len(order_nos) > 50:
-        raise HTTPException(status_code=400, detail="单次最多批量处理 50 个订单")
-
-    results = []
-    success_count = 0
-    failed_count = 0
-
-    for order_no in order_nos:
-        order = db.query(Order).filter(Order.order_no == order_no).first()
-        if not order:
-            failed_count += 1
-            results.append({"order_no": order_no, "ok": False, "msg": "订单不存在"})
-            continue
-
-        if is_delivered(order):
-            success_count += 1
-            results.append({"order_no": order_no, "ok": True, "msg": "已发货，跳过", "delivery_content": order.delivery_content})
-            continue
-
-        if not can_manual_confirm(order):
-            failed_count += 1
-            results.append({"order_no": order_no, "ok": False, "msg": f"状态不允许：payment_status={order.payment_status}, delivery_status={order.delivery_status}"})
-            continue
-
-        try:
-            if is_activation_product(order.product_code):
-                result = mark_activation_order_processing(db, order)
-                db.refresh(order)
-                success_count += 1
-                results.append({
-                    "order_no": order_no,
-                    "ok": True,
-                    "msg": "paid + processing",
-                    "delivery_content": order.delivery_content,
-                    "result": result,
-                })
-                continue
-
-            result = mark_paid_and_deliver(db, order)
-            db.refresh(order)
-            success_count += 1
-            results.append({"order_no": order_no, "ok": True, "msg": "paid + delivered", "delivery_content": order.delivery_content, "result": result})
-        except Exception as e:
-            db.rollback()
-            failed_count += 1
-            results.append({"order_no": order_no, "ok": False, "msg": str(e)})
-
-    return {"ok": failed_count == 0, "success_count": success_count, "failed_count": failed_count, "items": results}
-
-
-@router.post("/orders/manual-complete")
-def manual_complete_order(
-    payload: ManualCompleteRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
-):
-    order_no = (payload.order_no or "").strip()
-    delivery_content = (payload.delivery_content or "").strip()
-
-    if not order_no:
-        raise HTTPException(status_code=400, detail="缺少订单号")
-    if not delivery_content:
-        raise HTTPException(status_code=400, detail="请填写代开通结果或完成说明")
-
-    order = db.query(Order).filter(Order.order_no == order_no).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
-
-    if is_delivered(order):
-        return {
-            "ok": True,
-            "msg": "订单已完成，无需重复处理",
-            "order_no": order.order_no,
-            "delivery_content": order.delivery_content,
-            "email_sent": False,
-        }
-
-    return complete_order_and_notify(
-        db=db,
-        order=order,
-        delivery_content=delivery_content,
-        send_email=payload.send_email,
-    )
-
-
-@router.post("/orders/manual-auto-complete")
-def manual_auto_complete_order(
-    payload: AutoManualCompleteRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
-):
-    order_no = (payload.order_no or "").strip()
-    if not order_no:
-        raise HTTPException(status_code=400, detail="缺少订单号")
-
-    order = db.query(Order).filter(Order.order_no == order_no).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
-
-    if is_delivered(order):
-        return {
-            "ok": True,
-            "msg": "订单已完成，无需重复处理",
-            "order_no": order.order_no,
-            "delivery_content": order.delivery_content,
-            "email_sent": False,
-        }
-
-    delivery_content = build_auto_delivery_content(order)
-    return complete_order_and_notify(
-        db=db,
-        order=order,
-        delivery_content=delivery_content,
-        send_email=payload.send_email,
-    )
-
-
-@router.get("/admins")
-def list_admins(
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("admins:manage")),
-):
-    admins = db.query(AdminUser).order_by(AdminUser.id.asc()).all()
-    return {"items": [admin_to_dict(a) for a in admins]}
-
-
-@router.post("/admins")
-def create_admin(
-    payload: CreateAdminRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("admins:manage")),
-):
-    username = (payload.username or "").strip()
-    if len(username) < 3:
-        raise HTTPException(status_code=400, detail="管理员账号至少 3 位")
-    if db.query(AdminUser).filter(AdminUser.username == username).first():
-        raise HTTPException(status_code=400, detail="管理员账号已存在")
-
-    admin = AdminUser(
-        username=username,
-        password_hash=hash_password(payload.password),
-        role=normalize_role(payload.role),
-        is_active=1,
-        created_at=datetime.utcnow(),
-    )
-    db.add(admin)
-    db.commit()
-    db.refresh(admin)
-    return {"ok": True, "admin": admin_to_dict(admin)}
-
-
-@router.put("/admins/{admin_id}")
-def update_admin(
-    admin_id: int,
-    payload: UpdateAdminRequest,
-    db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("admins:manage")),
-):
-    admin = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="管理员不存在")
-
-    if admin.id == current_admin.id and payload.is_active is False:
-        raise HTTPException(status_code=400, detail="不能禁用当前登录的管理员")
-
-    if payload.password:
-        admin.password_hash = hash_password(payload.password)
-    if payload.role is not None:
-        admin.role = normalize_role(payload.role)
-    if payload.is_active is not None:
-        admin.is_active = 1 if payload.is_active else 0
-
-    db.commit()
-    db.refresh(admin)
-    return {"ok": True, "admin": admin_to_dict(admin)}
+    return {"message": "订单已完成"}
