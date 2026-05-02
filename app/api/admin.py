@@ -12,7 +12,7 @@ from app.core.db import get_db
 from app.core.security import create_admin_token, hash_password, verify_password
 from app.models.entities import AdminUser, DeliveryRecord, Order
 from app.services.delivery import mark_paid_and_deliver
-from app.services.email_service import send_delivery_email
+from app.services.email_service import send_delivery_email, send_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -85,6 +85,115 @@ def product_display_name(product_code: str) -> str:
         return "Cursor Pro"
     return str(product_code or "会员服务")
 
+
+
+
+def is_activation_product(product_code: str | None) -> bool:
+    code = str(product_code or "").upper()
+    activation_codes = {
+        "GPT_ACTIVATE_1M",
+        "GPT_ACTIVATE_3M",
+        "GPT_TEAM_1M",
+        "CLAUDE_ACTIVATE_1M",
+        "CLAUDE_ACTIVATE_3M",
+        "MJ_BASIC_1M",
+        "MJ_STANDARD_1M",
+        "MJ_PRO_1M",
+        "GEMINI_PRO_1M",
+        "PERPLEXITY_PRO_1M",
+        "CURSOR_PRO_1M",
+        "AI_BUNDLE_1M",
+    }
+    return code in activation_codes or "ACTIVATE" in code
+
+
+def send_processing_email(order: Order) -> dict:
+    """
+    确认收款后发送“处理中”邮件，避免客户误以为已经完成开通。
+    一键完成/手动完成仍然走 send_delivery_email，发送“订单已完成”邮件。
+    """
+    subject = f"您的订单正在处理中：{order.order_no}"
+    product_name = product_display_name(order.product_code)
+    text_body = (
+        "您好，您的订单已成功支付，我们已收到款项。\n\n"
+        f"订单号：{order.order_no}\n"
+        f"产品套餐：{product_name}\n"
+        "当前状态：正在处理中\n\n"
+        "我们正在为您进行开通操作，请耐心等待。开通完成后，您将收到新的完成通知邮件。\n\n"
+        "感谢您的支持。"
+    )
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #111827; line-height: 1.7;">
+        <div style="max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px;">
+          <h2 style="margin-top: 0; color: #111827;">您的订单正在处理中</h2>
+          <p>您好，您的订单已成功支付，我们已收到款项。</p>
+          <p><strong>订单号：</strong>{order.order_no}</p>
+          <p><strong>产品套餐：</strong>{product_name}</p>
+          <p><strong>当前状态：</strong>正在处理中</p>
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
+            我们正在为您进行开通操作，请耐心等待。开通完成后，您将收到新的完成通知邮件。
+          </div>
+          <p style="color: #6b7280; font-size: 13px; margin-top: 20px;">感谢您的支持。</p>
+        </div>
+      </body>
+    </html>
+    """
+    return send_email(
+        to_email=order.customer_email,
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+    )
+
+
+def mark_activation_order_processing(db: Session, order: Order) -> dict:
+    """
+    代开通商品确认收款后，只进入“处理中”，不发送已完成邮件。
+    后续点击“一键完成/手动填写”时才会改为 delivered 并发送完成邮件。
+    """
+    content = "已确认收款，订单已进入代开通流程。请等待处理完成通知。"
+
+    order.payment_status = "paid"
+    order.status = "paid"
+    order.delivery_status = "processing"
+    order.delivery_content = content
+
+    if hasattr(order, "paid_at"):
+        order.paid_at = datetime.utcnow()
+
+    record = DeliveryRecord(
+        order_id=order.id,
+        status="processing",
+        content=content,
+        created_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    email_sent = False
+    email_error = None
+    email_result = None
+
+    if order.customer_email:
+        try:
+            email_result = send_processing_email(order)
+            email_sent = True
+        except Exception as e:
+            email_error = str(e)
+
+    return {
+        "delivered": False,
+        "queued": True,
+        "activation_order": True,
+        "content": content,
+        "email_sent": email_sent,
+        "email_error": email_error,
+        "email_result": email_result,
+        "message": "activation order queued",
+    }
 
 def build_auto_delivery_content(order: Order) -> str:
     """
@@ -217,6 +326,17 @@ def confirm_paid_and_deliver(
         )
 
     try:
+        if is_activation_product(order.product_code):
+            result = mark_activation_order_processing(db, order)
+            db.refresh(order)
+            return {
+                "ok": True,
+                "msg": "paid + processing",
+                "order_no": order.order_no,
+                "delivery_content": order.delivery_content,
+                "result": result,
+            }
+
         result = mark_paid_and_deliver(db, order)
         db.refresh(order)
         return {"ok": True, "msg": "paid + delivered", "order_no": order.order_no, "delivery_content": order.delivery_content, "result": result}
@@ -271,6 +391,19 @@ def confirm_paid_and_deliver_bulk(
             continue
 
         try:
+            if is_activation_product(order.product_code):
+                result = mark_activation_order_processing(db, order)
+                db.refresh(order)
+                success_count += 1
+                results.append({
+                    "order_no": order_no,
+                    "ok": True,
+                    "msg": "paid + processing",
+                    "delivery_content": order.delivery_content,
+                    "result": result,
+                })
+                continue
+
             result = mark_paid_and_deliver(db, order)
             db.refresh(order)
             success_count += 1
