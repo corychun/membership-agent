@@ -71,6 +71,7 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    order.payment_method = "usdt"
     order.payment_status = "waiting"
     order.status = "pending_payment"
 
