@@ -1,5 +1,6 @@
 import traceback
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -86,9 +87,22 @@ def product_display_name(product_code: str) -> str:
 
 
 def build_auto_delivery_content(order: Order) -> str:
-    expire_date = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+    """
+    一键自动发货的交付内容。
+    业务规则：按中国用户常用时间显示，有效期从完成代开通当天起算 30 天，
+    到期日当天 23:59 前有效，避免因为 UTC/美国时间造成“看起来不足 30 天”。
+    """
+    beijing_tz = ZoneInfo("Asia/Shanghai")
+    now_cn = datetime.now(beijing_tz)
+    expire_at = (now_cn + timedelta(days=30)).replace(
+        hour=23, minute=59, second=0, microsecond=0
+    )
+    expire_text = expire_at.strftime("%Y-%m-%d %H:%M")
     product_name = product_display_name(order.product_code)
-    return f"已为您账号开通 {product_name}，有效期至 {expire_date}。请登录原账号查看，如有问题请联系网站客服。"
+    return (
+        f"已为您账号开通 {product_name}，有效期至 {expire_text}（北京时间）。"
+        f"请登录原账号查看，如有问题请联系网站客服。"
+    )
 
 
 def complete_order_and_notify(
