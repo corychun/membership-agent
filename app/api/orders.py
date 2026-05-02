@@ -34,7 +34,31 @@ class CreateOrderRequest(BaseModel):
     product_code: str
     customer_email: Optional[EmailStr] = None
     email: Optional[EmailStr] = None
+    # 用户在前端选择的支付方式：wechat / alipay / usdt
+    payment_method: Optional[str] = "wechat"
 
+
+
+
+def normalize_payment_method(method: Optional[str]) -> str:
+    value = str(method or "wechat").strip().lower()
+    mapping = {
+        "wx": "wechat",
+        "wxpay": "wechat",
+        "wechat_pay": "wechat",
+        "weixin": "wechat",
+        "ali": "alipay",
+        "ali_pay": "alipay",
+        "alipay_pay": "alipay",
+        "crypto": "usdt",
+        "nowpayments": "usdt",
+        "usdttrc20": "usdt",
+        "trc20": "usdt",
+    }
+    value = mapping.get(value, value)
+    if value not in {"wechat", "alipay", "usdt"}:
+        value = "wechat"
+    return value
 
 def make_order_no() -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
@@ -117,6 +141,7 @@ def get_available_stock_count(db: Session, product_code: str) -> int:
 def create_order_logic(data: CreateOrderRequest, db: Session):
     product_code = data.product_code.upper().strip()
     customer_email = get_customer_email(data)
+    payment_method = normalize_payment_method(data.payment_method)
 
     stock_count = None
 
@@ -134,6 +159,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         order_no=order_no,
         product_code=product_code,
         customer_email=customer_email,
+        payment_method=payment_method,
         status="pending_payment",
         payment_status="pending",
         delivery_status="pending",
@@ -150,6 +176,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         "order_no": order.order_no,
         "product_code": order.product_code,
         "customer_email": order.customer_email,
+        "payment_method": order.payment_method,
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
@@ -180,6 +207,7 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "order_no": order.order_no,
         "product_code": order.product_code,
         "customer_email": order.customer_email,
+        "payment_method": order.payment_method,
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
