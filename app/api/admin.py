@@ -69,6 +69,7 @@ def order_to_dict(o: Order):
         "order_no": o.order_no,
         "product_code": o.product_code,
         "customer_email": o.customer_email,
+        "payment_method": o.payment_method,
         "payment_status": o.payment_status,
         "status": o.status,
         "delivery_status": o.delivery_status,
