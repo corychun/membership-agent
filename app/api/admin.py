@@ -1,5 +1,5 @@
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,6 +35,11 @@ class ManualCompleteRequest(BaseModel):
     send_email: bool = True
 
 
+class AutoManualCompleteRequest(BaseModel):
+    order_no: str
+    send_email: bool = True
+
+
 class CreateAdminRequest(BaseModel):
     username: str
     password: str
@@ -63,17 +68,86 @@ def can_manual_confirm(order: Order) -> bool:
     }
 
 
+def product_display_name(product_code: str) -> str:
+    code = str(product_code or "").upper()
+    if "GPT" in code or "CHATGPT" in code:
+        return "ChatGPT Plus"
+    if "CLAUDE" in code:
+        return "Claude Pro"
+    if "MJ" in code or "MIDJOURNEY" in code:
+        return "Midjourney"
+    if "GEMINI" in code:
+        return "Gemini Advanced"
+    if "PERPLEXITY" in code:
+        return "Perplexity Pro"
+    if "CURSOR" in code:
+        return "Cursor Pro"
+    return str(product_code or "会员服务")
+
+
+def build_auto_delivery_content(order: Order) -> str:
+    expire_date = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+    product_name = product_display_name(order.product_code)
+    return f"已为您账号开通 {product_name}，有效期至 {expire_date}。请登录原账号查看，如有问题请联系网站客服。"
+
+
+def complete_order_and_notify(
+    db: Session,
+    order: Order,
+    delivery_content: str,
+    send_email: bool = True,
+) -> dict:
+    order.payment_status = "paid"
+    order.status = "completed"
+    order.delivery_status = "delivered"
+    order.delivery_content = delivery_content
+
+    record = DeliveryRecord(
+        order_id=order.id,
+        status="delivered",
+        content=delivery_content,
+        created_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    email_sent = False
+    email_error = None
+    if send_email and order.customer_email:
+        try:
+            send_delivery_email(
+                target_email=order.customer_email,
+                product_code=order.product_code,
+                order_no=order.order_no,
+                delivery_content=delivery_content,
+            )
+            email_sent = True
+        except Exception as e:
+            email_error = str(e)
+
+    return {
+        "ok": True,
+        "msg": "代开通订单已完成",
+        "order_no": order.order_no,
+        "delivery_content": order.delivery_content,
+        "email_sent": email_sent,
+        "email_error": email_error,
+    }
+
+
 def order_to_dict(o: Order):
     return {
         "id": o.id,
         "order_no": o.order_no,
         "product_code": o.product_code,
         "customer_email": o.customer_email,
-        "payment_method": o.payment_method,
         "payment_status": o.payment_status,
         "status": o.status,
         "delivery_status": o.delivery_status,
         "delivery_content": o.delivery_content,
+        "payment_method": getattr(o, "payment_method", None),
         "created_at": str(o.created_at) if o.created_at else None,
         "can_confirm": can_manual_confirm(o),
     }
@@ -222,44 +296,44 @@ def manual_complete_order(
             "email_sent": False,
         }
 
-    order.payment_status = "paid"
-    order.status = "completed"
-    order.delivery_status = "delivered"
-    order.delivery_content = delivery_content
-
-    record = DeliveryRecord(
-        order_id=order.id,
-        status="delivered",
-        content=delivery_content,
-        created_at=datetime.utcnow(),
+    return complete_order_and_notify(
+        db=db,
+        order=order,
+        delivery_content=delivery_content,
+        send_email=payload.send_email,
     )
-    db.add(record)
-    db.add(order)
-    db.commit()
-    db.refresh(order)
 
-    email_sent = False
-    email_error = None
-    if payload.send_email and order.customer_email:
-        try:
-            send_delivery_email(
-                target_email=order.customer_email,
-                product_code=order.product_code,
-                order_no=order.order_no,
-                delivery_content=delivery_content,
-            )
-            email_sent = True
-        except Exception as e:
-            email_error = str(e)
 
-    return {
-        "ok": True,
-        "msg": "代开通订单已完成",
-        "order_no": order.order_no,
-        "delivery_content": order.delivery_content,
-        "email_sent": email_sent,
-        "email_error": email_error,
-    }
+@router.post("/orders/manual-auto-complete")
+def manual_auto_complete_order(
+    payload: AutoManualCompleteRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
+):
+    order_no = (payload.order_no or "").strip()
+    if not order_no:
+        raise HTTPException(status_code=400, detail="缺少订单号")
+
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    if is_delivered(order):
+        return {
+            "ok": True,
+            "msg": "订单已完成，无需重复处理",
+            "order_no": order.order_no,
+            "delivery_content": order.delivery_content,
+            "email_sent": False,
+        }
+
+    delivery_content = build_auto_delivery_content(order)
+    return complete_order_and_notify(
+        db=db,
+        order=order,
+        delivery_content=delivery_content,
+        send_email=payload.send_email,
+    )
 
 
 @router.get("/admins")
