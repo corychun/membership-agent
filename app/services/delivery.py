@@ -6,29 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.entities import DeliveryRecord, Order
 from app.services.email_service import send_delivery_email
-
-
-ACTIVATION_PRODUCTS = {
-    "GPT_ACTIVATE_1M",
-    "GPT_ACTIVATE_1Y",
-    "GPT_ACTIVATE_3M",  # 历史订单兼容
-    "GPT_TEAM_1M",
-    "CLAUDE_ACTIVATE_1M",
-    "CLAUDE_ACTIVATE_1Y",
-    "CLAUDE_ACTIVATE_3M",  # 历史订单兼容
-    "MJ_BASIC_1M",
-    "MJ_STANDARD_1M",
-    "MJ_PRO_1M",
-    "GEMINI_PRO_1M",
-    "PERPLEXITY_PRO_1M",
-    "CURSOR_PRO_1M",
-    "AI_BUNDLE_1M",
-}
-
-
-def is_activation_product(product_code: str | None) -> bool:
-    p = str(product_code or "").upper()
-    return p in ACTIVATION_PRODUCTS or "ACTIVATE" in p
+from app.core.products import is_activation_product
 
 
 def _get_inventory_table(db: Session) -> Dict[str, Any]:
