@@ -1,6 +1,6 @@
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,38 +9,24 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.models.entities import Order
+from app.core.products import (
+    get_product,
+    is_activation_product,
+    is_inventory_product,
+    product_name,
+    product_period_days,
+    product_price_cny,
+)
+from app.models.entities import Order, RenewalTask
 
 router = APIRouter(tags=["orders"])
-
-
-ACTIVATION_PRODUCTS = {
-    "GPT_ACTIVATE_1M",
-    "GPT_ACTIVATE_1Y",
-    "GPT_ACTIVATE_3M",  # 历史订单兼容
-    "GPT_TEAM_1M",
-    "CLAUDE_ACTIVATE_1M",
-    "CLAUDE_ACTIVATE_1Y",
-    "CLAUDE_ACTIVATE_3M",  # 历史订单兼容
-    "MJ_BASIC_1M",
-    "MJ_STANDARD_1M",
-    "MJ_PRO_1M",
-    "GEMINI_PRO_1M",
-    "PERPLEXITY_PRO_1M",
-    "CURSOR_PRO_1M",
-    "AI_BUNDLE_1M",
-}
 
 
 class CreateOrderRequest(BaseModel):
     product_code: str
     customer_email: Optional[EmailStr] = None
     email: Optional[EmailStr] = None
-
-    # 支付方式：前端会传 wechat / alipay / usdt。
-    # paymentMethod 是为了兼容有些前端写法，不影响原有接口。
     payment_method: Optional[str] = None
-    paymentMethod: Optional[str] = None
 
 
 def make_order_no() -> str:
@@ -53,80 +39,6 @@ def get_customer_email(data: CreateOrderRequest) -> str:
     if not email:
         raise HTTPException(status_code=400, detail="缺少邮箱")
     return str(email)
-
-
-def normalize_payment_method(method: Optional[str]) -> str:
-    """统一保存支付方式，避免支付宝订单被默认成微信。"""
-    value = str(method or "").strip().lower()
-
-    if value in ["alipay", "ali", "支付宝", "zfb"]:
-        return "alipay"
-    if value in ["usdt", "crypto", "nowpayments", "nowpayments_usdt"]:
-        return "usdt"
-    if value in ["wechat", "wechat_pay", "wxpay", "weixin", "微信", "微信支付"]:
-        return "wechat"
-
-    # 兼容中文或混合字符串
-    if "支付宝" in value or "alipay" in value:
-        return "alipay"
-    if "usdt" in value or "crypto" in value or "nowpayments" in value:
-        return "usdt"
-    if "微信" in value or "wechat" in value or "wx" in value:
-        return "wechat"
-
-    # 没传时默认微信，保持你原来的人工收款默认流程。
-    return "wechat"
-
-
-def get_payment_method(data: CreateOrderRequest) -> str:
-    return normalize_payment_method(data.payment_method or data.paymentMethod)
-
-
-def is_activation_product(product_code: str) -> bool:
-    return product_code.upper().strip() in ACTIVATION_PRODUCTS or "ACTIVATE" in product_code.upper()
-
-
-def ensure_payment_method_column(db: Session) -> None:
-    """确保 orders.payment_method 存在。
-
-    只做兼容兜底：如果数据库已经加过字段，不会改变任何数据。
-    如果当前数据库不支持该语法，失败也不会影响原有下单流程。
-    """
-    try:
-        db.execute(
-            text(
-                "ALTER TABLE orders "
-                "ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'wechat'"
-            )
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-
-
-def set_order_payment_method(db: Session, order_no: str, payment_method: str) -> None:
-    """用原生 SQL 写入 payment_method，避免旧版 Order 模型没有该字段时报错。"""
-    try:
-        db.execute(
-            text("UPDATE orders SET payment_method = :payment_method WHERE order_no = :order_no"),
-            {"payment_method": payment_method, "order_no": order_no},
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-
-
-def read_order_payment_method(db: Session, order_no: str) -> Optional[str]:
-    try:
-        row = db.execute(
-            text("SELECT payment_method FROM orders WHERE order_no = :order_no"),
-            {"order_no": order_no},
-        ).mappings().first()
-        if not row:
-            return None
-        return row.get("payment_method")
-    except Exception:
-        return None
 
 
 def get_inventory_meta(db: Session):
@@ -147,10 +59,7 @@ def get_inventory_meta(db: Session):
     product_col = "product_code" if "product_code" in cols else "product"
 
     if product_col not in cols:
-        raise HTTPException(
-            status_code=500,
-            detail="库存表缺少 product_code 或 product 字段",
-        )
+        raise HTTPException(status_code=500, detail="库存表缺少 product_code 或 product 字段")
 
     return {
         "table": table_name,
@@ -164,9 +73,7 @@ def available_where(meta) -> str:
     parts = []
 
     if meta["status_col"]:
-        parts.append(
-            "LOWER(COALESCE(status, 'available')) IN ('available', 'new', 'unused')"
-        )
+        parts.append("LOWER(COALESCE(status, 'available')) IN ('available', 'new', 'unused')")
 
     if meta["used_col"]:
         parts.append("(is_used = false OR is_used IS NULL OR is_used = 0)")
@@ -191,22 +98,57 @@ def get_available_stock_count(db: Session, product_code: str) -> int:
     return int(row["count"] or 0)
 
 
-def create_order_logic(data: CreateOrderRequest, db: Session):
-    product_code = data.product_code.upper().strip()
-    customer_email = get_customer_email(data)
-    payment_method = get_payment_method(data)
+def ensure_renewal_task_for_order(db: Session, order: Order) -> None:
+    """为代开通订单生成续费/到期管理记录。
 
-    ensure_payment_method_column(db)
+    不改变订单主表结构，避免旧数据库 ALTER 失败。
+    """
+    if not is_activation_product(order.product_code):
+        return
+
+    period_days = product_period_days(order.product_code, 30)
+    due_at = (order.created_at or datetime.utcnow()) + timedelta(days=period_days)
+
+    existing = db.query(RenewalTask).filter(RenewalTask.order_no == order.order_no).first()
+    if existing:
+        existing.product_code = order.product_code
+        existing.customer_email = order.customer_email
+        existing.period_days = period_days
+        existing.due_at = existing.due_at or due_at
+        existing.updated_at = datetime.utcnow()
+        db.add(existing)
+        return
+
+    db.add(RenewalTask(
+        order_no=order.order_no,
+        product_code=order.product_code,
+        customer_email=order.customer_email,
+        period_days=period_days,
+        due_at=due_at,
+        status="pending_payment",
+        notes="订单创建后自动生成续费管理记录",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    ))
+
+
+def create_order_logic(data: CreateOrderRequest, db: Session):
+    product_code = (data.product_code or "").upper().strip()
+    customer_email = get_customer_email(data)
+
+    if not product_code:
+        raise HTTPException(status_code=400, detail="缺少产品代码")
 
     stock_count = None
+    product = get_product(product_code)
 
-    if not is_activation_product(product_code):
+    # 兼容历史/临时产品：未知产品按库存商品处理，避免破坏旧功能。
+    should_check_inventory = (product.inventory if product else not is_activation_product(product_code))
+
+    if should_check_inventory:
         stock_count = get_available_stock_count(db, product_code)
         if stock_count <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{product_code} 库存不足，暂时无法购买",
-            )
+            raise HTTPException(status_code=400, detail=f"{product_code} 库存不足，暂时无法购买")
 
     order_no = make_order_no()
 
@@ -222,17 +164,18 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
     )
 
     db.add(order)
+    db.flush()
+    ensure_renewal_task_for_order(db, order)
     db.commit()
     db.refresh(order)
-
-    set_order_payment_method(db, order_no=order.order_no, payment_method=payment_method)
 
     return {
         "id": order.id,
         "order_no": order.order_no,
         "product_code": order.product_code,
+        "product_name": product_name(order.product_code),
+        "product_price_cny": product_price_cny(order.product_code, 0),
         "customer_email": order.customer_email,
-        "payment_method": payment_method,
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
@@ -258,17 +201,22 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    renewal = db.query(RenewalTask).filter(RenewalTask.order_no == order.order_no).first()
+
     return {
         "id": order.id,
         "order_no": order.order_no,
         "product_code": order.product_code,
+        "product_name": product_name(order.product_code),
+        "product_price_cny": product_price_cny(order.product_code, 0),
         "customer_email": order.customer_email,
-        "payment_method": read_order_payment_method(db, order_no),
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
         "delivery_content": order.delivery_content,
         "created_at": str(order.created_at) if order.created_at else None,
+        "renewal_due_at": str(renewal.due_at) if renewal and renewal.due_at else None,
+        "renewal_status": renewal.status if renewal else None,
     }
 
 
