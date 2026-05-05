@@ -159,38 +159,55 @@ def safe_order_attr(order: Order, *names, default=None):
     return default
 
 
-def read_order_extra_from_db(db: Session | None, order: Order) -> dict:
-    """从 orders 表真实字段读取付款金额/支付方式。
+ORDER_EXTRA_COLUMNS = [
+    "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
+    "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
+    "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
+]
+
+
+def get_existing_order_extra_columns(db: Session | None) -> list[str]:
+    """只探测一次 orders 表字段，避免订单列表逐条探测导致后台一直加载。"""
+    if db is None:
+        return []
+    try:
+        inspector = inspect(db.bind)
+        cols = {c["name"] for c in inspector.get_columns("orders")}
+        return [c for c in ORDER_EXTRA_COLUMNS if c in cols]
+    except Exception:
+        return []
+
+
+def read_order_extras_from_db(db: Session | None, orders: list[Order]) -> dict[int, dict]:
+    """批量读取 orders 表真实字段。
 
     目的：不改数据库结构、不影响原有功能。
-    有些线上库已经有 amount_usd、pay_currency、payment_method 等字段，
-    但旧 Order 模型没有声明这些字段，直接 getattr 会拿不到，所以这里用表结构探测兼容读取。
+    旧 Order 模型没有声明的付款金额/支付方式字段，用一条 SQL 批量读取，
+    避免逐条查询导致 Render/Neon 后台订单页卡在“加载中”。
     """
-    if db is None or not order or not getattr(order, "id", None):
+    if db is None or not orders:
+        return {}
+
+    ids = [getattr(o, "id", None) for o in orders if getattr(o, "id", None)]
+    if not ids:
         return {}
 
     try:
-        inspector = inspect(db.bind)
-        table_names = set(inspector.get_table_names())
-        if "orders" not in table_names:
-            return {}
-
-        cols = {c["name"] for c in inspector.get_columns("orders")}
-        wanted = [
-            "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
-            "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
-            "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
-        ]
-        selected = [c for c in wanted if c in cols]
+        selected = get_existing_order_extra_columns(db)
         if not selected:
             return {}
-
-        sql = text('SELECT ' + ', '.join(selected) + ' FROM orders WHERE id = :id LIMIT 1')
-        row = db.execute(sql, {"id": order.id}).mappings().first()
-        return dict(row or {})
+        sql = text('SELECT id, ' + ', '.join(selected) + ' FROM orders WHERE id = ANY(:ids)')
+        rows = db.execute(sql, {"ids": ids}).mappings().all()
+        return {int(row["id"]): dict(row) for row in rows}
     except Exception:
         # 付款展示不能影响后台订单列表主流程
         return {}
+
+
+def read_order_extra_from_db(db: Session | None, order: Order) -> dict:
+    """兼容单条读取场景；列表接口不要用这个逐条查询。"""
+    data = read_order_extras_from_db(db, [order])
+    return data.get(int(getattr(order, "id", 0) or 0), {})
 
 
 def first_value(data: dict, names: list[str], default=None):
@@ -316,8 +333,8 @@ def suggested_delivery_content(order: Order) -> str:
         "请登录原账号查看，如有问题请联系网站客服。"
     )
 
-def order_to_dict(o: Order, db: Session | None = None):
-    extra = read_order_extra_from_db(db, o)
+def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None):
+    extra = extra if extra is not None else read_order_extra_from_db(db, o)
     payment_amount, payment_currency = get_payment_amount_for_order(o, extra)
     payment_method_label = get_payment_method_for_order(o, extra)
 
@@ -369,7 +386,8 @@ def list_orders(
     current_admin: AdminUser = Depends(require_permission("orders:read")),
 ):
     orders = db.query(Order).order_by(Order.id.desc()).limit(200).all()
-    return {"items": [order_to_dict(o, db) for o in orders]}
+    extras_by_id = read_order_extras_from_db(db, orders)
+    return {"items": [order_to_dict(o, db, extras_by_id.get(int(o.id), {})) for o in orders]}
 
 
 @router.post("/orders/confirm-paid")
