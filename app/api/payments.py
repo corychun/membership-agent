@@ -16,11 +16,13 @@ class CheckoutRequest(BaseModel):
 
 PRICE_MAP_USD = {
     "GPT_ACTIVATE_1M": 20,
-    "GPT_ACTIVATE_3M": 55,
+    "GPT_ACTIVATE_1Y": 240,
+    "GPT_ACTIVATE_3M": 55,  # 历史订单兼容
     "GPT_TEAM_1M": 25,
 
     "CLAUDE_ACTIVATE_1M": 20,
-    "CLAUDE_ACTIVATE_3M": 58,
+    "CLAUDE_ACTIVATE_1Y": 204,
+    "CLAUDE_ACTIVATE_3M": 58,  # 历史订单兼容
 
     "MJ_BASIC_1M": 12,
     "MJ_STANDARD_1M": 18,
