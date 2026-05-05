@@ -10,10 +10,12 @@ from app.services.email_service import send_delivery_email
 
 ACTIVATION_PRODUCTS = {
     "GPT_ACTIVATE_1M",
-    "GPT_ACTIVATE_3M",
+    "GPT_ACTIVATE_1Y",
+    "GPT_ACTIVATE_3M",  # 历史订单兼容
     "GPT_TEAM_1M",
     "CLAUDE_ACTIVATE_1M",
-    "CLAUDE_ACTIVATE_3M",
+    "CLAUDE_ACTIVATE_1Y",
+    "CLAUDE_ACTIVATE_3M",  # 历史订单兼容
     "MJ_BASIC_1M",
     "MJ_STANDARD_1M",
     "MJ_PRO_1M",
