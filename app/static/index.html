@@ -73,7 +73,7 @@ select option{color:#111827}
 
   <section class="hero">
     <div class="hero-card">
-      <div class="tag">● 官方代开通更稳定</div>
+      <div class="tag">● 官方订阅 · 人工开通更稳定</div>
       <h1>AI 会员稳定购买中心</h1>
       <p>本站只提供代开通服务，不销售共享账号和独享账号。使用你的邮箱开通，降低账号风控和售后风险。覆盖 ChatGPT、Claude、Midjourney、Gemini、Perplexity、Cursor 等热门 AI 工具。</p>
       <div class="hero-actions">
@@ -110,7 +110,7 @@ select option{color:#111827}
       </div>
 
       <button class="btn btn-primary submit-btn" id="buyBtn" onclick="buy()">立即创建订单</button>
-      <div class="status-box" id="statusBox">请选择套餐并填写邮箱，创建订单后请按提示付款。</div>
+      <div class="status-box" id="statusBox">请选择官方订阅套餐并填写邮箱，创建订单后请按提示付款。</div>
     </div>
 
     <div class="panel">
@@ -157,22 +157,22 @@ select option{color:#111827}
 
 <script>
 const PRODUCTS = [
-  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,usd:20,period:"1个月",badge:"🔥 主推",desc:"使用你的邮箱开通会员，风险最低，需人工处理。",noInventory:true},
-  {code:"GPT_ACTIVATE_3M",category:"ChatGPT",name:"ChatGPT Plus 季卡代开通",price:599,usd:55,period:"3个月",badge:"更划算",desc:"长期使用更省心，适合稳定需求。",noInventory:true},
-  {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,usd:25,period:"1个月",badge:"团队版",desc:"适合团队协作和高频使用，需人工处理。",noInventory:true},
+  {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 月付代开通",price:169,usd:20,period:"1个月",badge:"🔥 新用户首选",desc:"官方订阅 · 人工开通 · 稳定不封号 · 售后保障。",noInventory:true},
+  {code:"GPT_ACTIVATE_1Y",category:"ChatGPT",name:"ChatGPT Plus 年付代开通",price:1799,usd:240,period:"1年",badge:"⭐ 年付推荐",desc:"官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。",noInventory:true},
+  {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,usd:25,period:"1个月",badge:"团队版",desc:"官方订阅 · 人工开通 · 适合团队协作和高频使用。",noInventory:true},
 
-  {code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 代开通",price:230,usd:20,period:"1个月",badge:"更稳定",desc:"使用你的邮箱开通，适合长期稳定使用。",noInventory:true},
-  {code:"CLAUDE_ACTIVATE_3M",category:"Claude",name:"Claude Pro 季卡代开通",price:629,usd:58,period:"3个月",badge:"长期稳定",desc:"长期长文处理需求，减少续费麻烦。",noInventory:true},
+  {code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 月付代开通",price:230,usd:20,period:"1个月",badge:"官方月付",desc:"官方订阅 · 人工开通 · 适合长期稳定使用。",noInventory:true},
+  {code:"CLAUDE_ACTIVATE_1Y",category:"Claude",name:"Claude Pro 年付代开通",price:1799,usd:204,period:"1年",badge:"⭐ 官方年付",desc:"官方年付订阅 · 人工开通 · 平均月成本更低。",noInventory:true},
 
-  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic 代开通",price:120,usd:12,period:"1个月",badge:"AI绘画入门",desc:"适合低频出图和基础设计。",noInventory:true},
-  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard 代开通",price:180,usd:18,period:"1个月",badge:"绘画推荐",desc:"适合设计素材、海报、创意图。",noInventory:true},
-  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro 代开通",price:300,usd:30,period:"1个月",badge:"高频创作",desc:"适合设计师和高频出图用户。",noInventory:true},
+  {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic 代开通",price:120,usd:12,period:"1个月",badge:"AI绘画入门",desc:"官方订阅 · 人工开通 · 适合低频出图和基础设计。",noInventory:true},
+  {code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard 代开通",price:180,usd:18,period:"1个月",badge:"绘画推荐",desc:"官方订阅 · 人工开通 · 适合设计素材、海报、创意图。",noInventory:true},
+  {code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro 代开通",price:300,usd:30,period:"1个月",badge:"高频创作",desc:"官方订阅 · 人工开通 · 适合设计师和高频出图用户。",noInventory:true},
 
-  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced 代开通",price:99,usd:10,period:"1个月",badge:"Google AI",desc:"适合多模态和搜索增强使用。",noInventory:true},
-  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro 代开通",price:120,usd:12,period:"1个月",badge:"搜索问答",desc:"适合资料检索、论文搜索、研究。",noInventory:true},
-  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro 代开通",price:150,usd:15,period:"1个月",badge:"编程助手",desc:"适合程序员 AI 编程开发。",noInventory:true},
+  {code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced 代开通",price:99,usd:10,period:"1个月",badge:"Google AI",desc:"官方订阅 · 人工开通 · 适合多模态和搜索增强使用。",noInventory:true},
+  {code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro 代开通",price:120,usd:12,period:"1个月",badge:"搜索问答",desc:"官方订阅 · 人工开通 · 适合资料检索、论文搜索、研究。",noInventory:true},
+  {code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro 代开通",price:150,usd:15,period:"1个月",badge:"编程助手",desc:"官方订阅 · 人工开通 · 适合程序员 AI 编程开发。",noInventory:true},
 
-  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶代开通",price:300,usd:30,period:"1个月",badge:"组合优惠",desc:"ChatGPT / Claude / MJ 等组合套餐。",noInventory:true}
+  {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶月付代开通",price:300,usd:30,period:"1个月",badge:"组合优惠",desc:"官方订阅组合 · 人工开通 · ChatGPT / Claude / MJ 等组合套餐。",noInventory:true}
 ];
 
 const PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
@@ -219,7 +219,7 @@ function renderProducts(){
         </div>
         <div>
           <div class="price">¥${p.price} <small>/ ${p.period}</small></div>
-          <div class="stock"><span class="ok">人工开通，无需库存</span></div>
+          <div class="stock"><span class="ok">官方订阅 · 人工开通</span></div>
         </div>
       </div>
     `;
@@ -338,7 +338,7 @@ async function buy(){
 
     qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":"支付宝"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认。</p>`;
 
-    statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>该套餐为人工代开通服务，付款后请等待处理。</div>`;
+    statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>该套餐为官方订阅人工开通服务，付款后请等待处理。</div>`;
 
     buyBtn.disabled = false;
     buyBtn.innerText = "继续创建订单";
