@@ -12,9 +12,6 @@ class Order(Base):
     product_code = Column(String(100))
     customer_email = Column(String(255))
 
-    # 用户实际选择的支付方式：wechat / alipay / usdt
-    payment_method = Column(String(50), default="wechat")
-
     payment_status = Column(String(50), default="pending")
     status = Column(String(50), default="pending_payment")
     delivery_status = Column(String(50), default="pending")
@@ -119,3 +116,31 @@ class SupportMessage(Base):
 
     is_read = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class OrderLog(Base):
+    __tablename__ = "order_logs"
+
+    id = Column(Integer, primary_key=True)
+    order_no = Column(String(64), index=True)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(80), nullable=True)
+    action = Column(String(80), index=True)
+    before_status = Column(String(120), nullable=True)
+    after_status = Column(String(120), nullable=True)
+    detail = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RenewalTask(Base):
+    __tablename__ = "renewal_tasks"
+
+    id = Column(Integer, primary_key=True)
+    order_no = Column(String(64), unique=True, index=True)
+    product_code = Column(String(100), index=True)
+    customer_email = Column(String(255))
+    period_days = Column(Integer, default=30)
+    due_at = Column(DateTime, index=True)
+    status = Column(String(50), default="active", index=True)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
