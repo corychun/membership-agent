@@ -99,15 +99,25 @@ def product_display_name(product_code: str) -> str:
     return str(product_code or "会员服务")
 
 
+
+def service_days(product_code: str) -> int:
+    code = str(product_code or "").upper()
+    if "1Y" in code or "YEAR" in code or "ANNUAL" in code:
+        return 365
+    if "3M" in code or "QUARTER" in code:
+        return 90
+    return 30
+
+
 def build_auto_delivery_content(order: Order) -> str:
     """
     一键自动发货的交付内容。
-    业务规则：按中国用户常用时间显示，有效期从完成代开通当天起算 30 天，
+    业务规则：按中国用户常用时间显示，有效期根据产品周期自动计算：月付 30 天、历史季卡 90 天、年付 365 天，
     到期日当天 23:59 前有效，避免因为 UTC/美国时间造成“看起来不足 30 天”。
     """
     beijing_tz = ZoneInfo("Asia/Shanghai")
     now_cn = datetime.now(beijing_tz)
-    expire_at = (now_cn + timedelta(days=30)).replace(
+    expire_at = (now_cn + timedelta(days=service_days(order.product_code))).replace(
         hour=23, minute=59, second=0, microsecond=0
     )
     expire_text = expire_at.strftime("%Y-%m-%d %H:%M")
