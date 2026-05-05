@@ -43,15 +43,15 @@ PRODUCTS: list[Product] = [
     Product("CLAUDE_PRO_1Y", "Claude", "Claude Pro 独享年卡", 1799, 270, "1年", 365, True),
 
     # Midjourney
-    Product("MJ_BASIC_1M", "Midjourney", "Midjourney Basic", 120, 20, "1个月", 30, True, "AI绘画入门", "官方订阅 · 人工开通 · 适合低频出图和基础设计。"),
-    Product("MJ_STANDARD_1M", "Midjourney", "Midjourney Standard", 279, 45, "1个月", 30, True, "⭐ 最多人选择", "官方订阅 · 人工开通 · 适合设计素材、海报、创意图。"),
-    Product("MJ_PRO_1M", "Midjourney", "Midjourney Pro", 519, 85, "1个月", 30, True, "🔥 高性价比", "官方订阅 · 人工开通 · 适合设计师和高频出图用户。"),
-    Product("MJ_MEGA_1M", "Midjourney", "Midjourney Mega", 999, 160, "1个月", 30, True, "👑 工作室推荐", "官方订阅 · 人工开通 · 适合高频创作、团队和工作室用户。"),
+    Product("MJ_BASIC_1M", "Midjourney", "Midjourney Basic", 120, 20, "1个月", 30, False, "AI绘画入门", "官方订阅 · 人工开通 · 适合低频出图和基础设计。"),
+    Product("MJ_STANDARD_1M", "Midjourney", "Midjourney Standard", 279, 45, "1个月", 30, False, "⭐ 最多人选择", "官方订阅 · 人工开通 · 适合设计素材、海报、创意图。"),
+    Product("MJ_PRO_1M", "Midjourney", "Midjourney Pro", 519, 85, "1个月", 30, False, "🔥 高性价比", "官方订阅 · 人工开通 · 适合设计师和高频出图用户。"),
+    Product("MJ_MEGA_1M", "Midjourney", "Midjourney Mega", 999, 160, "1个月", 30, False, "👑 工作室推荐", "官方订阅 · 人工开通 · 适合高频创作、团队和工作室用户。"),
 
     # Gemini
-    Product("GEMINI_PLUS_1M", "Gemini", "Gemini Plus", 99, 18, "1个月", 30, True, "入门推荐", "官方订阅 · 人工开通 · 适合日常AI使用与轻度多模态需求。"),
-    Product("GEMINI_PRO_1M", "Gemini", "Gemini Pro", 189, 30, "1个月", 30, True, "🔥 主推套餐", "官方订阅 · 人工开通 · 更高额度、更强模型能力，适合高频用户。"),
-    Product("GEMINI_ULTRA_1M", "Gemini", "Gemini Ultra", 1899, 290, "1个月", 30, True, "👑 高端套餐", "官方最高级订阅 · 人工开通 · 顶级模型权限和最高调用额度。"),
+    Product("GEMINI_PLUS_1M", "Gemini", "Gemini Plus", 99, 18, "1个月", 30, False, "入门推荐", "官方订阅 · 人工开通 · 适合日常AI使用与轻度多模态需求。"),
+    Product("GEMINI_PRO_1M", "Gemini", "Gemini Pro", 189, 30, "1个月", 30, False, "🔥 主推套餐", "官方订阅 · 人工开通 · 更高额度、更强模型能力，适合高频用户。"),
+    Product("GEMINI_ULTRA_1M", "Gemini", "Gemini Ultra", 1899, 290, "1个月", 30, False, "👑 高端套餐", "官方最高级订阅 · 人工开通 · 顶级模型权限和最高调用额度。"),
 ]
 
 # 历史订单兼容：不再前台展示，但后台、查询、发货仍能识别。
