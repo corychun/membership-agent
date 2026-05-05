@@ -130,8 +130,8 @@ def inventory_stats(db: Session = Depends(get_db)):
 
     products = [
         "GPT", "CLAUDE", "VIP", "MJ",
-        "GPT_SHARED_1M", "GPT_PLUS_1M", "GPT_PLUS_3M", "GPT_TEAM_1M",
-        "CLAUDE_SHARED_1M", "CLAUDE_PRO_1M", "CLAUDE_PRO_3M",
+        "GPT_SHARED_1M", "GPT_PLUS_1M", "GPT_PLUS_1Y", "GPT_PLUS_3M", "GPT_TEAM_1M",
+        "CLAUDE_SHARED_1M", "CLAUDE_PRO_1M", "CLAUDE_PRO_1Y", "CLAUDE_PRO_3M",
         "MJ_BASIC_1M", "MJ_STANDARD_1M", "MJ_PRO_1M",
         "GEMINI_PRO_1M", "PERPLEXITY_PRO_1M", "CURSOR_PRO_1M",
         "AI_BUNDLE_1M",
