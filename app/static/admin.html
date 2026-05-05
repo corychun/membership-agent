@@ -15,11 +15,7 @@ th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14p
 th{background:#f3f4f6}.ok{color:#047857;font-weight:700}.warn{color:#b45309;font-weight:700}.danger{color:#b91c1c;font-weight:700}.need{background:#fff7ed}
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stock{border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#f9fafb}
-.hidden{display:none}.nav button{margin-right:8px;margin-bottom:8px}.log-detail{white-space:pre-wrap;max-width:520px;color:#374151;font-size:12px}
-.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:999}
-.modal-mask.show{display:flex}
-.modal{background:#fff;border-radius:16px;padding:20px;width:min(560px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.22)}
-.modal h3{margin-top:0}.modal textarea{margin-top:8px}.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}.muted{color:#6b7280;font-size:12px;line-height:1.6}
+.hidden{display:none}.nav button{margin-right:8px;margin-bottom:8px}.log-detail{white-space:pre-wrap;max-width:520px;color:#374151;font-size:12px}.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:999}.modal-mask.show{display:flex}.modal{background:#fff;border-radius:16px;padding:20px;width:min(560px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.22)}.modal h3{margin-top:0}.modal textarea{margin-top:8px}.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}.muted{color:#6b7280;font-size:12px;line-height:1.6}
 @media(max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -27,12 +23,12 @@ th{background:#f3f4f6}.ok{color:#047857;font-weight:700}.warn{color:#b45309;font
 <div class="card">
   <h2>后台管理</h2><div id="meBox"></div>
   <div class="nav" style="margin-top:14px;">
-    <button onclick="showTab('orders')">订单管理</button><button onclick="showTab('inventory')">库存管理</button><button onclick="showTab('query')">用户订单查询</button><button id="adminTabBtn" onclick="showTab('admins')">多管理员系统</button><button class="gray" onclick="logout()">退出登录</button>
+    <button onclick="showTab('orders')">订单管理</button><button onclick="showTab('inventory')">库存管理</button><button onclick="showTab('renewals')">续费管理</button><button onclick="showTab('logs')">操作日志</button><button onclick="showTab('query')">用户订单查询</button><button id="adminTabBtn" onclick="showTab('admins')">多管理员系统</button><button class="gray" onclick="logout()">退出登录</button>
   </div>
 </div>
 <div class="card tab" id="tab-orders">
   <h3>订单管理</h3><div class="toolbar"><button onclick="loadOrders()">刷新订单</button><button onclick="selectPending()">选择待处理订单</button><button onclick="batchConfirm()">批量确认收款并发货</button><input id="searchInput" placeholder="搜索订单号 / 邮箱 / 产品" oninput="renderOrders()"><select id="statusFilter" onchange="renderOrders()"><option value="">全部订单</option><option value="pending">待处理</option><option value="paid">已支付</option><option value="delivered">已发货</option></select></div>
-  <table><thead><tr><th><input type="checkbox" onclick="toggleAll(this)"></th><th>订单号</th><th>邮箱</th><th>产品套餐</th><th>订单状态</th><th>支付状态</th><th>发货状态</th><th>发货内容</th><th>时间</th><th>操作</th></tr></thead><tbody id="orderBody"></tbody></table><div id="statusBox" style="margin-top:14px;"></div>
+  <table><thead><tr><th><input type="checkbox" onclick="toggleAll(this)"></th><th>订单号</th><th>邮箱</th><th>产品套餐</th><th>订单状态</th><th>支付状态</th><th>支付方式</th><th>发货状态</th><th>发货内容</th><th>时间</th><th>操作</th></tr></thead><tbody id="orderBody"></tbody></table><div id="statusBox" style="margin-top:14px;"></div>
 </div>
 <div class="card tab hidden" id="tab-inventory">
   <h3>库存余量</h3><div class="toolbar"><button onclick="loadInventory()">刷新库存</button><button class="red" onclick="deleteSelectedInventory()">删除选中库存</button><button onclick="loadInventoryLogs()">查看操作日志</button></div>
@@ -41,6 +37,25 @@ th{background:#f3f4f6}.ok{color:#047857;font-weight:700}.warn{color:#b45309;font
   <textarea id="addCodes" placeholder="一行一个库存，例如：&#10;账号----密码----备注"></textarea><div id="inventoryMsg" style="margin-top:12px;"></div>
   <h3 style="margin-top:24px;">最近库存明细</h3><table><thead><tr><th><input type="checkbox" onclick="toggleInventoryAll(this)"></th><th>ID</th><th>产品套餐</th><th>内容</th><th>状态</th></tr></thead><tbody id="inventoryBody"></tbody></table>
   <h3 style="margin-top:24px;">库存操作日志</h3><table><thead><tr><th>时间</th><th>管理员</th><th>操作</th><th>产品</th><th>数量</th><th>详情</th></tr></thead><tbody id="inventoryLogBody"><tr><td colspan="6">点击“查看操作日志”加载。</td></tr></tbody></table>
+</div>
+<div class="card tab hidden" id="tab-renewals">
+  <h3>续费管理</h3>
+  <div class="toolbar">
+    <button onclick="loadRenewals()">刷新续费</button>
+    <select id="renewalFilter" onchange="loadRenewals()">
+      <option value="">全部</option>
+      <option value="processing">处理中</option>
+      <option value="active">服务中</option>
+      <option value="closed">已关闭</option>
+      <option value="cancelled">已取消</option>
+    </select>
+  </div>
+  <table><thead><tr><th>ID</th><th>订单号</th><th>邮箱</th><th>产品套餐</th><th>到期时间</th><th>剩余天数</th><th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody id="renewalBody"><tr><td colspan="9">点击“刷新续费”加载。</td></tr></tbody></table>
+</div>
+<div class="card tab hidden" id="tab-logs">
+  <h3>订单操作日志</h3>
+  <div class="toolbar"><input id="logOrderNo" placeholder="按订单号筛选，可空"><button onclick="loadOrderLogs()">刷新日志</button></div>
+  <table><thead><tr><th>ID</th><th>时间</th><th>订单号</th><th>管理员</th><th>操作</th><th>操作前</th><th>操作后</th><th>详情</th></tr></thead><tbody id="orderLogBody"><tr><td colspan="8">点击“刷新日志”加载。</td></tr></tbody></table>
 </div>
 <div class="card tab hidden" id="tab-query"><h3>用户订单查询</h3><div class="toolbar"><input id="queryOrderNo" placeholder="输入订单号，例如 ORD-XXXX"><button onclick="queryOrder()">查询</button></div><div id="queryResult">请输入订单号查询。</div></div>
 <div class="card tab hidden" id="tab-admins"><h3>多管理员系统</h3><h4>创建管理员</h4><div class="toolbar"><input id="newAdminUsername" placeholder="管理员账号"><input id="newAdminPassword" placeholder="密码" type="password"><select id="newAdminRole"><option value="support">support / 客服</option><option value="manager">manager / 订单库存客服</option><option value="super_admin">super_admin / 超级管理员</option></select><button onclick="createAdmin()">创建管理员</button></div><div id="adminMsg"></div><h4>管理员列表</h4><table><thead><tr><th>ID</th><th>账号</th><th>角色</th><th>状态</th><th>最后登录</th><th>操作</th></tr></thead><tbody id="adminBody"></tbody></table></div>
@@ -59,51 +74,23 @@ th{background:#f3f4f6}.ok{color:#047857;font-weight:700}.warn{color:#b45309;font
 <script>
 const PRODUCT_CATALOG=[
 {code:"GPT_PLUS_1M",category:"ChatGPT",name:"ChatGPT Plus 独享账号",price:180,period:"1个月",inventory:true},
-{code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 月付代开通",price:169,period:"1个月",inventory:false},
-{code:"GPT_ACTIVATE_1Y",category:"ChatGPT",name:"ChatGPT Plus 年付代开通",price:1799,period:"1年",inventory:false},
-{code:"GPT_PLUS_1Y",category:"ChatGPT",name:"ChatGPT Plus 独享年卡",price:1799,period:"1年",inventory:true},
-{code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位",price:260,period:"1个月",inventory:true},
+{code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 代开通",price:220,period:"1个月",inventory:false},
+{code:"GPT_PLUS_3M",category:"ChatGPT",name:"ChatGPT Plus 独享季卡",price:499,period:"3个月",inventory:true},
+{code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位",price:220,period:"1个月",inventory:true},
 {code:"CLAUDE_PRO_1M",category:"Claude",name:"Claude Pro 独享账号",price:200,period:"1个月",inventory:true},
-{code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 月付代开通",price:169,period:"1个月",inventory:false},
-{code:"CLAUDE_ACTIVATE_1Y",category:"Claude",name:"Claude Pro 年付代开通",price:1799,period:"1年",inventory:false},
-{code:"CLAUDE_PRO_1Y",category:"Claude",name:"Claude Pro 独享年卡",price:1799,period:"1年",inventory:true},
+{code:"CLAUDE_ACTIVATE_1M",category:"Claude",name:"Claude Pro 代开通",price:230,period:"1个月",inventory:false},
+{code:"CLAUDE_PRO_3M",category:"Claude",name:"Claude Pro 独享季卡",price:560,period:"3个月",inventory:true},
 {code:"MJ_BASIC_1M",category:"Midjourney",name:"Midjourney Basic",price:120,period:"1个月",inventory:true},
-{code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard",price:279,period:"1个月",inventory:true},
-{code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro",price:519,period:"1个月",inventory:true},
-{code:"MJ_MEGA_1M",category:"Midjourney",name:"Midjourney Mega",price:999,period:"1个月",inventory:true},
-{code:"GEMINI_PLUS_1M",category:"Gemini",name:"Gemini Plus",price:99,period:"1个月",inventory:true},
-{code:"GEMINI_PRO_1M",category:"Gemini",name:"Gemini Pro",price:189,period:"1个月",inventory:true},
-{code:"GEMINI_ULTRA_1M",category:"Gemini",name:"Gemini Ultra",price:1899,period:"1个月",inventory:true}
+{code:"MJ_STANDARD_1M",category:"Midjourney",name:"Midjourney Standard",price:180,period:"1个月",inventory:true},
+{code:"MJ_PRO_1M",category:"Midjourney",name:"Midjourney Pro",price:300,period:"1个月",inventory:true},
+{code:"GEMINI_PRO_1M",category:"更多AI工具",name:"Gemini Advanced",price:99,period:"1个月",inventory:true},
+{code:"PERPLEXITY_PRO_1M",category:"更多AI工具",name:"Perplexity Pro",price:120,period:"1个月",inventory:true},
+{code:"CURSOR_PRO_1M",category:"更多AI工具",name:"Cursor Pro",price:150,period:"1个月",inventory:true},
+{code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶月卡",price:300,period:"1个月",inventory:true}
 ];
-const PRODUCT_NAME=Object.fromEntries(PRODUCT_CATALOG.map(p=>[p.code,`${p.category} - ${p.name}`]));
-Object.assign(PRODUCT_NAME, {
-  "GPT_ACTIVATE_3M":"ChatGPT - ChatGPT Plus 季卡代开通（历史订单）",
-  "GPT_PLUS_3M":"ChatGPT - ChatGPT Plus 独享季卡（历史库存）",
-  "CLAUDE_ACTIVATE_3M":"Claude - Claude Pro 季卡代开通（历史订单）",
-  "CLAUDE_PRO_3M":"Claude - Claude Pro 独享季卡（历史库存）",
-  "PERPLEXITY_PRO_1M":"更多AI工具 - Perplexity Pro 代开通（历史订单）",
-  "CURSOR_PRO_1M":"更多AI工具 - Cursor Pro 代开通（历史订单）",
-  "AI_BUNDLE_1M":"组合套餐 - AI全家桶月卡（历史订单）"
-});
-
-const token=localStorage.getItem("admin_token")||localStorage.getItem("token");
-if(!token)location.href="/static/login.html";
-let currentAdmin=null,orders=[];
-
-function authHeaders(){return{"Content-Type":"application/json","Authorization":"Bearer "+token}}
-function logout(){localStorage.removeItem("admin_token");localStorage.removeItem("token");location.href="/static/login.html"}
-function showTab(name){document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));document.getElementById("tab-"+name).classList.remove("hidden");if(name==="orders")loadOrders();if(name==="inventory"){loadInventory();loadInventoryLogs()}if(name==="admins")loadAdmins()}
-function escapeHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
-function productName(code){return PRODUCT_NAME[code]||code||"-"}
-function statusClass(v){v=String(v||"").toLowerCase();if(["paid","completed","delivered","success"].includes(v))return"ok";if(["processing","pending","pending_payment","waiting","unpaid"].includes(v))return"warn";return"danger"}
-function isDelivered(o){const d=String(o.delivery_status||"").toLowerCase();return ["delivered","completed","success","sent"].includes(d)}
-function isActivationProduct(code){code=String(code||"").toUpperCase();return code.includes("ACTIVATE")||["GPT_ACTIVATE_1M","GPT_ACTIVATE_3M","GPT_TEAM_1M","CLAUDE_ACTIVATE_1M","CLAUDE_ACTIVATE_3M"].includes(code)}
-function canManualComplete(o){return isActivationProduct(o.product_code)&&!isDelivered(o)&&["paid","processing","completed"].includes(String(o.payment_status||o.status||"").toLowerCase())}
-function canConfirm(o){if(isDelivered(o))return false;if(canManualComplete(o))return false;if(o.can_confirm===true)return true;return true}
-
-let manualCurrentOrderNo=null;
+const PRODUCT_NAME=Object.fromEntries(PRODUCT_CATALOG.map(p=>[p.code,`${p.category} - ${p.name}`]));const token=localStorage.getItem("admin_token")||localStorage.getItem("token");if(!token)location.href="/static/login.html";let currentAdmin=null,orders=[];
+function authHeaders(){return{"Content-Type":"application/json","Authorization":"Bearer "+token}}function logout(){localStorage.removeItem("admin_token");localStorage.removeItem("token");location.href="/static/login.html"}function showTab(name){document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));document.getElementById("tab-"+name).classList.remove("hidden");if(name==="orders")loadOrders();if(name==="inventory"){loadInventory();loadInventoryLogs()}if(name==="renewals")loadRenewals();if(name==="logs")loadOrderLogs();if(name==="admins")loadAdmins()}function escapeHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}function productName(code){return PRODUCT_NAME[code]||code||"-"}function paymentMethod(o){const raw=o.payment_method||o.pay_method||o.payment_provider||o.provider||"";if(!raw)return "未记录";const v=String(raw).toLowerCase();if(v.includes("wechat")||v.includes("wxpay")||v.includes("weixin")||v==="wx")return "微信支付";if(v.includes("alipay")||v==="ali")return "支付宝";if(v.includes("usdt")||v.includes("trc20")||v.includes("nowpayments")||v.includes("crypto"))return "USDT";return raw}function statusClass(v){v=String(v||"").toLowerCase();if(["paid","completed","delivered","success"].includes(v))return"ok";if(["processing","pending","pending_payment","waiting","unpaid"].includes(v))return"warn";return"danger"}function isDelivered(o){const d=String(o.delivery_status||"").toLowerCase();return ["delivered","completed","success","sent"].includes(d)}function isActivationProduct(code){code=String(code||"").toUpperCase();return code.includes("ACTIVATE")||["GPT_ACTIVATE_1M","GPT_ACTIVATE_3M","GPT_TEAM_1M","CLAUDE_ACTIVATE_1M","CLAUDE_ACTIVATE_3M"].includes(code)}function canManualComplete(o){return isActivationProduct(o.product_code)&&!isDelivered(o)&&["paid","processing","completed"].includes(String(o.payment_status||o.status||"").toLowerCase())}function canConfirm(o){if(isDelivered(o))return false;if(canManualComplete(o))return false;if(o.can_confirm===true)return true;return true}let manualCurrentOrderNo=null;
 let manualModalLock=false;
-
 function openManualComplete(orderNo){
   if(manualModalLock)return;
   manualModalLock=true;
@@ -113,217 +100,30 @@ function openManualComplete(orderNo){
   document.getElementById("manualSendEmail").checked=true;
   document.getElementById("manualModal").classList.add("show");
 }
-
 function closeManualModal(){
   const modal=document.getElementById("manualModal");
-  modal.classList.remove("show");
+  if(modal)modal.classList.remove("show");
   manualCurrentOrderNo=null;
   setTimeout(()=>{manualModalLock=false},300);
 }
-
-document.addEventListener("DOMContentLoaded",()=>{
-  const modal=document.getElementById("manualModal");
-  if(modal){
-    modal.classList.remove("show");
-    modal.addEventListener("click",e=>{if(e.target===modal)closeManualModal()});
-  }
-});
-
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeManualModal()});
-
-async function submitManualComplete(){
-  const content=document.getElementById("manualContent").value.trim();
-  if(!manualCurrentOrderNo){alert("缺少订单号");return}
-  if(!content){alert("请填写代开通结果或完成说明");return}
-  const res=await fetch("/admin/orders/manual-complete",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_no:manualCurrentOrderNo,delivery_content:content,send_email:document.getElementById("manualSendEmail").checked})});
-  const data=await res.json();
-  if(!res.ok){alert(data.detail||"处理失败");return}
-  alert(data.email_sent?"代开通已完成，已邮件通知客户":"代开通已完成"+(data.email_error?"，但邮件发送失败："+data.email_error:""));
-  closeManualModal();
-  loadOrders();
-}
-
-function initProductSelect(){
-  const select=document.getElementById("addProduct");
-  select.innerHTML=PRODUCT_CATALOG.filter(p=>p.inventory).map(p=>`<option value="${p.code}">${p.category} - ${p.name}（${p.period} / ¥${p.price}）</option>`).join("")
-}
-
-async function checkMe(){
-  try{
-    const res=await fetch("/admin/me",{headers:authHeaders()});
-    if(res.status===401||res.status===403){logout();return}
-    const data=await res.json();
-    currentAdmin=data.admin;
-    document.getElementById("meBox").innerHTML=`当前管理员：<b>${escapeHtml(currentAdmin.username)}</b> / ${escapeHtml(currentAdmin.role)}`;
-    if(currentAdmin.role!=="super_admin")document.getElementById("adminTabBtn").style.display="none"
-  }catch(e){
-    document.getElementById("meBox").innerHTML=`<span class="danger">登录状态检查失败</span>`
-  }
-}
-
-async function loadOrders(){
-  const body=document.getElementById("orderBody");
-  body.innerHTML=`<tr><td colspan="10">加载中...</td></tr>`;
-  try{
-    const res=await fetch("/admin/orders",{headers:authHeaders()});
-    if(res.status===401||res.status===403){logout();return}
-    const data=await res.json();
-    orders=Array.isArray(data)?data:(data.items||[]);
-    renderOrders()
-  }catch(e){
-    body.innerHTML=`<tr><td colspan="10" class="danger">加载失败：${escapeHtml(e.message)}</td></tr>`
-  }
-}
-
-function renderOrders(){
-  const keyword=document.getElementById("searchInput").value.trim().toLowerCase(),filter=document.getElementById("statusFilter").value,body=document.getElementById("orderBody");
-  let list=orders.filter(o=>{
-    const text=`${o.order_no||""} ${o.customer_email||""} ${o.product_code||""} ${productName(o.product_code)}`.toLowerCase();
-    if(keyword&&!text.includes(keyword))return false;
-    if(filter==="pending")return canConfirm(o)||canManualComplete(o);
-    if(filter==="paid")return String(o.payment_status||"").toLowerCase()==="paid";
-    if(filter==="delivered")return String(o.delivery_status||"").toLowerCase()==="delivered";
-    return true
-  });
-  if(!list.length){body.innerHTML=`<tr><td colspan="10">暂无订单</td></tr>`;return}
-  body.innerHTML=list.map(o=>{
-    let btn="";
-    if(canManualComplete(o)){
-      btn=`<button class="green" onclick="openManualComplete('${escapeHtml(o.order_no)}')">完成代开通</button>`
-    }else if(canConfirm(o)){
-      const label=isActivationProduct(o.product_code)?"确认收款并进入代开通":"确认收款并发货";
-      btn=`<button onclick="confirmOne('${escapeHtml(o.order_no)}')">${label}</button>`
-    }else{
-      btn=`<button class="gray" disabled>已完成</button>`
-    }
-    const need=canConfirm(o)||canManualComplete(o);
-    return `<tr class="${need?"need":""}"><td><input type="checkbox" class="orderCheck" value="${escapeHtml(o.order_no||"")}" ${canConfirm(o)?"":"disabled"}></td><td>${escapeHtml(o.order_no||"-")}</td><td>${escapeHtml(o.customer_email||"-")}</td><td>${escapeHtml(productName(o.product_code))}<br><small>${escapeHtml(o.product_code||"-")}</small></td><td class="${statusClass(o.status)}">${escapeHtml(o.status||"-")}</td><td class="${statusClass(o.payment_status)}">${escapeHtml(o.payment_status||"-")}</td><td class="${statusClass(o.delivery_status)}">${escapeHtml(o.delivery_status||"-")}</td><td>${escapeHtml(o.delivery_content||"-")}</td><td>${escapeHtml(o.created_at||"-")}</td><td>${btn}</td></tr>`
-  }).join("")
-}
-
-async function confirmOne(orderNo){
-  if(!confirm("确认收款并发货："+orderNo+" ?"))return;
-  const res=await fetch("/admin/orders/confirm-paid",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_no:orderNo})});
-  const data=await res.json();
-  if(!res.ok){alert(data.detail||"处理失败");return}
-  alert("处理成功");
-  loadOrders()
-}
-
-async function batchConfirm(){
-  const ids=Array.from(document.querySelectorAll(".orderCheck:checked")).map(i=>i.value);
-  if(!ids.length){alert("请选择订单");return}
-  if(!confirm(`确认批量处理 ${ids.length} 个订单？`))return;
-  const res=await fetch("/admin/orders/confirm-paid-bulk",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_nos:ids})});
-  const data=await res.json();
-  if(!res.ok){alert(data.detail||"批量处理失败");return}
-  document.getElementById("statusBox").innerHTML=`<span class="ok">成功：${data.success_count}</span>，<span class="danger">失败：${data.failed_count}</span>`;
-  loadOrders()
-}
-
-function toggleAll(el){document.querySelectorAll(".orderCheck:not(:disabled)").forEach(i=>i.checked=el.checked)}
-function selectPending(){document.querySelectorAll(".orderCheck").forEach(i=>i.checked=!i.disabled)}
-
-async function loadInventory(){
-  try{
-    const statsRes=await fetch("/inventory/stats"),stats=await statsRes.json();
-    document.getElementById("stockGrid").innerHTML=(stats.items||[]).map(i=>`<div class="stock"><b>${escapeHtml(productName(i.product_code))}</b><br><small>${escapeHtml(i.product_code)}</small><br>可用：<span class="ok">${escapeHtml(i.available)}</span><br>总数：${escapeHtml(i.total)}<br>已用：${escapeHtml(i.used)}</div>`).join("");
-    const listRes=await fetch("/inventory/list",{headers:authHeaders()}),list=await listRes.json();
-    document.getElementById("inventoryBody").innerHTML=(list.items||[]).map(i=>`<tr><td><input type="checkbox" class="invCheck" value="${escapeHtml(i.id)}"></td><td>${escapeHtml(i.id)}</td><td>${escapeHtml(productName(i.product_code))}<br><small>${escapeHtml(i.product_code)}</small></td><td>${escapeHtml(i.content||i.code||"")}</td><td class="${i.status==='available'?'ok':'warn'}">${escapeHtml(i.status||(i.is_used?"used":"available"))}</td></tr>`).join("")||`<tr><td colspan="5">暂无库存</td></tr>`
-  }catch(e){
-    document.getElementById("inventoryMsg").innerHTML=`<span class="danger">库存加载失败：${escapeHtml(e.message)}</span>`
-  }
-}
-
-async function addInventory(){
-  const product=document.getElementById("addProduct").value,codes=document.getElementById("addCodes").value;
-  if(!codes.trim()){alert("请输入库存内容");return}
-  const res=await fetch("/inventory/add",{method:"POST",headers:authHeaders(),body:JSON.stringify({product_code:product,codes})});
-  const data=await res.json();
-  if(!res.ok){document.getElementById("inventoryMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"添加失败")}</span>`;return}
-  document.getElementById("inventoryMsg").innerHTML=`<span class="ok">添加成功：${escapeHtml(data.inserted||data.count||0)} 条</span>`;
-  document.getElementById("addCodes").value="";
-  loadInventory();
-  loadInventoryLogs()
-}
-
-function toggleInventoryAll(el){document.querySelectorAll(".invCheck").forEach(i=>i.checked=el.checked)}
-
-async function deleteSelectedInventory(){
-  const ids=Array.from(document.querySelectorAll(".invCheck:checked")).map(i=>parseInt(i.value));
-  if(!ids.length){alert("请选择要删除的库存");return}
-  if(!confirm(`确定删除 ${ids.length} 条库存？删除后不可恢复。`))return;
-  const res=await fetch("/inventory/delete",{method:"POST",headers:authHeaders(),body:JSON.stringify(ids)});
-  const data=await res.json();
-  if(!res.ok){alert(data.detail||"删除失败");return}
-  alert(`删除成功：${data.deleted} 条`);
-  loadInventory();
-  loadInventoryLogs()
-}
-
-async function loadInventoryLogs(){
-  const body=document.getElementById("inventoryLogBody");
-  body.innerHTML=`<tr><td colspan="6">日志加载中...</td></tr>`;
-  try{
-    const res=await fetch("/inventory/logs",{headers:authHeaders()}),data=await res.json();
-    if(!res.ok){body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}
-    const items=data.items||[];
-    if(!items.length){body.innerHTML=`<tr><td colspan="6">暂无操作日志</td></tr>`;return}
-    body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(l.created_at||"-")}</td><td>${escapeHtml(l.admin_name||"-")}</td><td class="${l.action==='delete'?'danger':'ok'}">${escapeHtml(l.action||"-")}</td><td>${escapeHtml(productName(l.product_code))}<br><small>${escapeHtml(l.product_code||"-")}</small></td><td>${escapeHtml(l.quantity||0)}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")
-  }catch(e){
-    body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(e.message)}</td></tr>`
-  }
-}
-
-async function queryOrder(){
-  const orderNo=document.getElementById("queryOrderNo").value.trim();
-  if(!orderNo){alert("请输入订单号");return}
-  let found=orders.find(o=>o.order_no===orderNo);
-  if(!found){await loadOrders();found=orders.find(o=>o.order_no===orderNo)}
-  if(!found){document.getElementById("queryResult").innerHTML=`<span class="danger">未找到订单</span>`;return}
-  document.getElementById("queryResult").innerHTML=`<div class="stock">订单号：${escapeHtml(found.order_no)}<br>邮箱：${escapeHtml(found.customer_email)}<br>套餐：${escapeHtml(productName(found.product_code))}<br>订单状态：${escapeHtml(found.status)}<br>支付状态：${escapeHtml(found.payment_status)}<br>发货状态：${escapeHtml(found.delivery_status)}<br>发货内容：${escapeHtml(found.delivery_content||"-")}</div>`
-}
-
-async function loadAdmins(){
-  if(!currentAdmin||currentAdmin.role!=="super_admin")return;
-  const res=await fetch("/admin/admins",{headers:authHeaders()}),data=await res.json();
-  if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"加载失败")}</span>`;return}
-  document.getElementById("adminBody").innerHTML=(data.items||[]).map(a=>`<tr><td>${escapeHtml(a.id)}</td><td>${escapeHtml(a.username)}</td><td><select id="role_${a.id}"><option value="support" ${a.role==="support"?"selected":""}>support</option><option value="manager" ${a.role==="manager"?"selected":""}>manager</option><option value="super_admin" ${a.role==="super_admin"?"selected":""}>super_admin</option></select></td><td>${a.is_active?'<span class="ok">启用</span>':'<span class="danger">禁用</span>'}</td><td>${escapeHtml(a.last_login_at||"-")}</td><td><input id="pwd_${a.id}" placeholder="新密码，可空" type="password"><button onclick="updateAdmin(${a.id})">保存</button><button class="${a.is_active?'red':'green'}" onclick="toggleAdmin(${a.id}, ${a.is_active?0:1})">${a.is_active?'禁用':'启用'}</button></td></tr>`).join("")
-}
-
-async function createAdmin(){
-  const username=document.getElementById("newAdminUsername").value.trim(),password=document.getElementById("newAdminPassword").value,role=document.getElementById("newAdminRole").value;
-  if(!username||!password){alert("请输入账号和密码");return}
-  const res=await fetch("/admin/admins",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,password,role})});
-  const data=await res.json();
-  if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"创建失败")}</span>`;return}
-  document.getElementById("adminMsg").innerHTML=`<span class="ok">创建成功</span>`;
-  document.getElementById("newAdminUsername").value="";
-  document.getElementById("newAdminPassword").value="";
-  loadAdmins()
-}
-
-async function updateAdmin(id){
-  const role=document.getElementById("role_"+id).value,password=document.getElementById("pwd_"+id).value,body={role};
-  if(password)body.password=password;
-  const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify(body)}),data=await res.json();
-  if(!res.ok){alert(data.detail||"保存失败");return}
-  alert("保存成功");
-  loadAdmins()
-}
-
-async function toggleAdmin(id,active){
-  const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify({is_active:!!active})}),data=await res.json();
-  if(!res.ok){alert(data.detail||"操作失败");return}
-  loadAdmins()
-}
-
-function copyText(t){navigator.clipboard.writeText(t);alert("已复制："+t)}
-
-initProductSelect();
-checkMe();
-loadOrders();
-setInterval(()=>{if(!document.getElementById("tab-orders").classList.contains("hidden"))loadOrders()},60000);
+document.addEventListener("DOMContentLoaded",()=>{const modal=document.getElementById("manualModal");if(modal){modal.classList.remove("show");modal.addEventListener("click",e=>{if(e.target===modal)closeManualModal()})}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeManualModal()});async function submitManualComplete(){const content=document.getElementById("manualContent").value.trim();if(!manualCurrentOrderNo){alert("缺少订单号");return}if(!content){alert("请填写代开通结果或完成说明");return}const res=await fetch("/admin/orders/manual-complete",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_no:manualCurrentOrderNo,delivery_content:content,send_email:document.getElementById("manualSendEmail").checked})});const data=await res.json();if(!res.ok){alert(data.detail||"处理失败");return}alert(data.email_sent?"代开通已完成，已邮件通知客户":"代开通已完成"+(data.email_error?"，但邮件发送失败："+data.email_error:""));closeManualModal();loadOrders()}
+function initProductSelect(){const select=document.getElementById("addProduct");select.innerHTML=PRODUCT_CATALOG.filter(p=>p.inventory).map(p=>`<option value="${p.code}">${p.category} - ${p.name}（${p.period} / ¥${p.price}）</option>`).join("")}
+async function checkMe(){try{const res=await fetch("/admin/me",{headers:authHeaders()});if(res.status===401||res.status===403){logout();return}const data=await res.json();currentAdmin=data.admin;document.getElementById("meBox").innerHTML=`当前管理员：<b>${escapeHtml(currentAdmin.username)}</b> / ${escapeHtml(currentAdmin.role)}`;if(currentAdmin.role!=="super_admin")document.getElementById("adminTabBtn").style.display="none"}catch(e){document.getElementById("meBox").innerHTML=`<span class="danger">登录状态检查失败</span>`}}
+async function loadOrders(){const body=document.getElementById("orderBody");body.innerHTML=`<tr><td colspan="11">加载中...</td></tr>`;try{const res=await fetch("/admin/orders",{headers:authHeaders()});if(res.status===401||res.status===403){logout();return}const data=await res.json();orders=Array.isArray(data)?data:(data.items||[]);renderOrders()}catch(e){body.innerHTML=`<tr><td colspan="11" class="danger">加载失败：${escapeHtml(e.message)}</td></tr>`}}
+function renderOrders(){const keyword=document.getElementById("searchInput").value.trim().toLowerCase(),filter=document.getElementById("statusFilter").value,body=document.getElementById("orderBody");let list=orders.filter(o=>{const text=`${o.order_no||""} ${o.customer_email||""} ${o.product_code||""} ${productName(o.product_code)}`.toLowerCase();if(keyword&&!text.includes(keyword))return false;if(filter==="pending")return canConfirm(o)||canManualComplete(o);if(filter==="paid")return String(o.payment_status||"").toLowerCase()==="paid";if(filter==="delivered")return String(o.delivery_status||"").toLowerCase()==="delivered";return true});if(!list.length){body.innerHTML=`<tr><td colspan="11">暂无订单</td></tr>`;return}body.innerHTML=list.map(o=>{let btn="";if(canManualComplete(o)){btn=`<button class="green" onclick="openManualComplete('${escapeHtml(o.order_no)}')">完成代开通</button>`}else if(canConfirm(o)){const label=isActivationProduct(o.product_code)?"确认收款并进入代开通":"确认收款并发货";btn=`<button onclick="confirmOne('${escapeHtml(o.order_no)}')">${label}</button>`}else{btn=`<button class="gray" disabled>已完成</button>`}const need=canConfirm(o)||canManualComplete(o);return `<tr class="${need?"need":""}"><td><input type="checkbox" class="orderCheck" value="${escapeHtml(o.order_no||"")}" ${canConfirm(o)?"":"disabled"}></td><td>${escapeHtml(o.order_no||"-")}</td><td>${escapeHtml(o.customer_email||"-")}</td><td>${escapeHtml(productName(o.product_code))}<br><small>${escapeHtml(o.product_code||"-")}</small></td><td class="${statusClass(o.status)}">${escapeHtml(o.status||"-")}</td><td class="${statusClass(o.payment_status)}">${escapeHtml(o.payment_status||"-")}</td><td>${escapeHtml(paymentMethod(o))}</td><td class="${statusClass(o.delivery_status)}">${escapeHtml(o.delivery_status||"-")}</td><td>${escapeHtml(o.delivery_content||"-")}</td><td>${escapeHtml(o.created_at||"-")}</td><td>${btn}</td></tr>`}).join("")}
+async function confirmOne(orderNo){if(!confirm("确认收款并发货："+orderNo+" ?"))return;const res=await fetch("/admin/orders/confirm-paid",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_no:orderNo})});const data=await res.json();if(!res.ok){alert(data.detail||"处理失败");return}alert("处理成功");loadOrders()}async function batchConfirm(){const ids=Array.from(document.querySelectorAll(".orderCheck:checked")).map(i=>i.value);if(!ids.length){alert("请选择订单");return}if(!confirm(`确认批量处理 ${ids.length} 个订单？`))return;const res=await fetch("/admin/orders/confirm-paid-bulk",{method:"POST",headers:authHeaders(),body:JSON.stringify({order_nos:ids})});const data=await res.json();if(!res.ok){alert(data.detail||"批量处理失败");return}document.getElementById("statusBox").innerHTML=`<span class="ok">成功：${data.success_count}</span>，<span class="danger">失败：${data.failed_count}</span>`;loadOrders()}function toggleAll(el){document.querySelectorAll(".orderCheck:not(:disabled)").forEach(i=>i.checked=el.checked)}function selectPending(){document.querySelectorAll(".orderCheck").forEach(i=>i.checked=!i.disabled)}
+async function loadInventory(){try{const statsRes=await fetch("/inventory/stats"),stats=await statsRes.json();document.getElementById("stockGrid").innerHTML=(stats.items||[]).map(i=>`<div class="stock"><b>${escapeHtml(productName(i.product_code))}</b><br><small>${escapeHtml(i.product_code)}</small><br>可用：<span class="ok">${escapeHtml(i.available)}</span><br>总数：${escapeHtml(i.total)}<br>已用：${escapeHtml(i.used)}</div>`).join("");const listRes=await fetch("/inventory/list",{headers:authHeaders()}),list=await listRes.json();document.getElementById("inventoryBody").innerHTML=(list.items||[]).map(i=>`<tr><td><input type="checkbox" class="invCheck" value="${escapeHtml(i.id)}"></td><td>${escapeHtml(i.id)}</td><td>${escapeHtml(productName(i.product_code))}<br><small>${escapeHtml(i.product_code)}</small></td><td>${escapeHtml(i.content||i.code||"")}</td><td class="${i.status==='available'?'ok':'warn'}">${escapeHtml(i.status||(i.is_used?"used":"available"))}</td></tr>`).join("")||`<tr><td colspan="5">暂无库存</td></tr>`}catch(e){document.getElementById("inventoryMsg").innerHTML=`<span class="danger">库存加载失败：${escapeHtml(e.message)}</span>`}}
+async function addInventory(){const product=document.getElementById("addProduct").value,codes=document.getElementById("addCodes").value;if(!codes.trim()){alert("请输入库存内容");return}const res=await fetch("/inventory/add",{method:"POST",headers:authHeaders(),body:JSON.stringify({product_code:product,codes})});const data=await res.json();if(!res.ok){document.getElementById("inventoryMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"添加失败")}</span>`;return}document.getElementById("inventoryMsg").innerHTML=`<span class="ok">添加成功：${escapeHtml(data.inserted||data.count||0)} 条</span>`;document.getElementById("addCodes").value="";loadInventory();loadInventoryLogs()}function toggleInventoryAll(el){document.querySelectorAll(".invCheck").forEach(i=>i.checked=el.checked)}async function deleteSelectedInventory(){const ids=Array.from(document.querySelectorAll(".invCheck:checked")).map(i=>parseInt(i.value));if(!ids.length){alert("请选择要删除的库存");return}if(!confirm(`确定删除 ${ids.length} 条库存？删除后不可恢复。`))return;const res=await fetch("/inventory/delete",{method:"POST",headers:authHeaders(),body:JSON.stringify(ids)});const data=await res.json();if(!res.ok){alert(data.detail||"删除失败");return}alert(`删除成功：${data.deleted} 条`);loadInventory();loadInventoryLogs()}
+async function loadInventoryLogs(){const body=document.getElementById("inventoryLogBody");body.innerHTML=`<tr><td colspan="6">日志加载中...</td></tr>`;try{const res=await fetch("/inventory/logs",{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="6">暂无操作日志</td></tr>`;return}body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(l.created_at||"-")}</td><td>${escapeHtml(l.admin_name||"-")}</td><td class="${l.action==='delete'?'danger':'ok'}">${escapeHtml(l.action||"-")}</td><td>${escapeHtml(productName(l.product_code))}<br><small>${escapeHtml(l.product_code||"-")}</small></td><td>${escapeHtml(l.quantity||0)}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")}catch(e){body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(e.message)}</td></tr>`}}
+async function loadRenewals(){const body=document.getElementById("renewalBody");if(!body)return;body.innerHTML=`<tr><td colspan="9">续费记录加载中...</td></tr>`;try{const status=document.getElementById("renewalFilter")?.value||"";const url=status?`/admin/renewals?status=${encodeURIComponent(status)}`:"/admin/renewals";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(data.detail||"续费记录加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="9">暂无续费记录</td></tr>`;return}body.innerHTML=items.map(i=>{const days=Number(i.days_left);const cls=days<0?"danger":(days<=3?"warn":"ok");return `<tr><td>${escapeHtml(i.id)}</td><td>${escapeHtml(i.order_no||"-")}</td><td>${escapeHtml(i.customer_email||"-")}</td><td>${escapeHtml(i.product_name||i.product_code||"-")}<br><small>${escapeHtml(i.product_code||"-")}</small></td><td>${escapeHtml(i.due_at||"-")}</td><td class="${cls}">${i.days_left===null||i.days_left===undefined?"-":escapeHtml(i.days_left)}</td><td class="${statusClass(i.status)}">${escapeHtml(i.status||"-")}</td><td>${escapeHtml(i.notes||"-")}</td><td><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="markRenewed(${Number(i.id)})">标记已续费</button><button class="gray" onclick="closeRenewal(${Number(i.id)})">关闭</button></div></td></tr>`}).join("")}catch(e){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(e.message)}</td></tr>`}}
+async function markRenewed(id){const notes=prompt("续费备注：","已完成续费");if(notes===null)return;const res=await fetch(`/admin/renewals/${id}/mark-renewed`,{method:"POST",headers:authHeaders(),body:JSON.stringify({notes})});const data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}alert("已标记续费，并自动顺延到期时间");loadRenewals();loadOrderLogs()}
+async function closeRenewal(id){const notes=prompt("关闭原因：","无需继续续费");if(notes===null)return;const res=await fetch(`/admin/renewals/${id}/close`,{method:"POST",headers:authHeaders(),body:JSON.stringify({notes})});const data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}alert("已关闭续费记录");loadRenewals();loadOrderLogs()}
+async function loadOrderLogs(){const body=document.getElementById("orderLogBody");if(!body)return;body.innerHTML=`<tr><td colspan="8">日志加载中...</td></tr>`;try{const orderNo=document.getElementById("logOrderNo")?.value.trim()||"";const url=orderNo?`/admin/order-logs?order_no=${encodeURIComponent(orderNo)}`:"/admin/order-logs";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="8">暂无操作日志</td></tr>`;return}body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(l.id)}</td><td>${escapeHtml(l.created_at||"-")}</td><td>${escapeHtml(l.order_no||"-")}</td><td>${escapeHtml(l.admin_name||"系统")}</td><td>${escapeHtml(l.action||"-")}</td><td class="log-detail">${escapeHtml(l.before_status||"-")}</td><td class="log-detail">${escapeHtml(l.after_status||"-")}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")}catch(e){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(e.message)}</td></tr>`}}
+async function queryOrder(){const orderNo=document.getElementById("queryOrderNo").value.trim();if(!orderNo){alert("请输入订单号");return}let found=orders.find(o=>o.order_no===orderNo);if(!found){await loadOrders();found=orders.find(o=>o.order_no===orderNo)}if(!found){document.getElementById("queryResult").innerHTML=`<span class="danger">未找到订单</span>`;return}document.getElementById("queryResult").innerHTML=`<div class="stock">订单号：${escapeHtml(found.order_no)}<br>邮箱：${escapeHtml(found.customer_email)}<br>套餐：${escapeHtml(productName(found.product_code))}<br>订单状态：${escapeHtml(found.status)}<br>支付状态：${escapeHtml(found.payment_status)}<br>支付方式：${escapeHtml(paymentMethod(found))}<br>发货状态：${escapeHtml(found.delivery_status)}<br>发货内容：${escapeHtml(found.delivery_content||"-")}</div>`}
+async function loadAdmins(){if(!currentAdmin||currentAdmin.role!=="super_admin")return;const res=await fetch("/admin/admins",{headers:authHeaders()}),data=await res.json();if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"加载失败")}</span>`;return}document.getElementById("adminBody").innerHTML=(data.items||[]).map(a=>`<tr><td>${escapeHtml(a.id)}</td><td>${escapeHtml(a.username)}</td><td><select id="role_${a.id}"><option value="support" ${a.role==="support"?"selected":""}>support</option><option value="manager" ${a.role==="manager"?"selected":""}>manager</option><option value="super_admin" ${a.role==="super_admin"?"selected":""}>super_admin</option></select></td><td>${a.is_active?'<span class="ok">启用</span>':'<span class="danger">禁用</span>'}</td><td>${escapeHtml(a.last_login_at||"-")}</td><td><input id="pwd_${a.id}" placeholder="新密码，可空" type="password"><button onclick="updateAdmin(${a.id})">保存</button><button class="${a.is_active?'red':'green'}" onclick="toggleAdmin(${a.id}, ${a.is_active?0:1})">${a.is_active?'禁用':'启用'}</button></td></tr>`).join("")}
+async function createAdmin(){const username=document.getElementById("newAdminUsername").value.trim(),password=document.getElementById("newAdminPassword").value,role=document.getElementById("newAdminRole").value;if(!username||!password){alert("请输入账号和密码");return}const res=await fetch("/admin/admins",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,password,role})});const data=await res.json();if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"创建失败")}</span>`;return}document.getElementById("adminMsg").innerHTML=`<span class="ok">创建成功</span>`;document.getElementById("newAdminUsername").value="";document.getElementById("newAdminPassword").value="";loadAdmins()}async function updateAdmin(id){const role=document.getElementById("role_"+id).value,password=document.getElementById("pwd_"+id).value,body={role};if(password)body.password=password;const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify(body)}),data=await res.json();if(!res.ok){alert(data.detail||"保存失败");return}alert("保存成功");loadAdmins()}async function toggleAdmin(id,active){const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify({is_active:!!active})}),data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}loadAdmins()}function copyText(t){navigator.clipboard.writeText(t);alert("已复制："+t)}
+initProductSelect();checkMe();loadOrders();setInterval(()=>{if(!document.getElementById("tab-orders").classList.contains("hidden"))loadOrders()},60000);
 </script>
 </body>
 </html>
