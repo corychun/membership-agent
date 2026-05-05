@@ -144,6 +144,87 @@ def update_renewal_status_for_order(db: Session, order: Order, status: str, note
         db.add(task)
 
 
+
+def safe_order_attr(order: Order, *names, default=None):
+    for name in names:
+        try:
+            value = getattr(order, name, None)
+        except Exception:
+            value = None
+        if value is not None and value != "":
+            return value
+    return default
+
+
+def normalize_payment_method_label(value) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "未记录"
+    v = raw.lower()
+    if "wechat" in v or "wxpay" in v or "weixin" in v or v == "wx":
+        return "微信支付"
+    if "alipay" in v or v == "ali":
+        return "支付宝"
+    if "nowpayments" in v:
+        return "NOWPayments / USDT"
+    if "trc20" in v:
+        return "USDT-TRC20"
+    if "usdt" in v or "crypto" in v:
+        return "USDT"
+    return raw
+
+
+def format_amount_value(value, currency: str = "") -> str:
+    if value is None or value == "":
+        return ""
+    try:
+        num = float(value)
+        if num.is_integer():
+            text = str(int(num))
+        else:
+            text = (f"{num:.8f}").rstrip("0").rstrip(".")
+    except Exception:
+        text = str(value)
+    currency = (currency or "").strip().upper()
+    return f"{text} {currency}".strip()
+
+
+def suggested_delivery_content(order: Order) -> str:
+    name = product_name(order.product_code)
+    code = str(order.product_code or "").upper()
+    period_days = product_period_days(order.product_code, 30)
+    expire_at = datetime.utcnow() + timedelta(days=period_days)
+    expire_text = expire_at.strftime("%Y-%m-%d") + " 23:59（北京时间）"
+
+    service = name
+    if "GPT" in code or "CHATGPT" in name.upper():
+        service = "ChatGPT Plus" if "PLUS" in code or "PLUS" in name.upper() else "ChatGPT"
+    elif "CLAUDE" in code or "CLAUDE" in name.upper():
+        service = "Claude Pro" if "PRO" in code or "PRO" in name.upper() else "Claude"
+    elif "MJ" in code or "MIDJOURNEY" in name.upper():
+        if "BASIC" in code or "BASIC" in name.upper():
+            service = "Midjourney Basic"
+        elif "STANDARD" in code or "STANDARD" in name.upper():
+            service = "Midjourney Standard"
+        elif "PRO" in code or "PRO" in name.upper():
+            service = "Midjourney Pro"
+        elif "MEGA" in code or "MEGA" in name.upper():
+            service = "Midjourney Mega"
+        else:
+            service = "Midjourney"
+    elif "GEMINI" in code or "GEMINI" in name.upper():
+        if "ULTRA" in code or "ULTRA" in name.upper():
+            service = "Gemini Ultra"
+        elif "PRO" in code or "PRO" in name.upper():
+            service = "Gemini Pro"
+        else:
+            service = "Gemini Advanced"
+
+    return (
+        f"已为您账号开通 {service}，有效期至 {expire_text}。\n"
+        "请登录原账号查看，如有问题请联系网站客服。"
+    )
+
 def order_to_dict(o: Order):
     renewal = None
     try:
@@ -163,6 +244,15 @@ def order_to_dict(o: Order):
         "delivery_status": o.delivery_status,
         "delivery_content": o.delivery_content,
         "created_at": str(o.created_at) if o.created_at else None,
+        "payment_method": safe_order_attr(o, "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel"),
+        "payment_method_label": normalize_payment_method_label(safe_order_attr(o, "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel")),
+        "payment_amount": safe_order_attr(o, "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usdt", "price_usdt", "product_price_usdt"),
+        "payment_currency": safe_order_attr(o, "payment_currency", "currency", "pay_currency", default="USDT"),
+        "payment_amount_text": format_amount_value(
+            safe_order_attr(o, "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usdt", "price_usdt", "product_price_usdt"),
+            safe_order_attr(o, "payment_currency", "currency", "pay_currency", default="USDT"),
+        ),
+        "suggested_delivery_content": suggested_delivery_content(o),
         "can_confirm": can_manual_confirm(o),
     }
 
