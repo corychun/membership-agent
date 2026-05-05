@@ -221,13 +221,8 @@ def first_value(data: dict, names: list[str], default=None):
 def normalize_payment_method_label(value, order: Order | None = None) -> str:
     raw = str(value or "").strip()
 
-    # 老订单没有保存支付方式时，根据当前项目默认支付链路兜底显示。
-    # 不写数据库，只用于后台展示，避免继续出现“未记录”。
-    if not raw and order is not None:
-        status_text = f"{getattr(order, 'payment_status', '')} {getattr(order, 'status', '')}".lower()
-        if any(x in status_text for x in ["waiting", "paid", "finished", "completed", "success"]):
-            return "USDT"
-
+    # 只显示订单里真实记录到的支付方式。
+    # 没有记录就显示“未记录”，避免把旧订单误判成微信/支付宝/USDT。
     if not raw:
         return "未记录"
     v = raw.lower()
@@ -259,7 +254,22 @@ def format_amount_value(value, currency: str = "") -> str:
     return f"{text} {currency}".strip()
 
 
-def get_payment_amount_for_order(order: Order, extra: dict) -> tuple[object, str]:
+def get_payment_amount_for_order(order: Order, extra: dict, payment_method_label: str = "") -> tuple[object, str]:
+    """后台付款金额展示规则：
+    - 微信/支付宝：按套餐人民币价格显示，例如 220 元
+    - USDT/NOWPayments/TRC20：按套餐 USDT 价格显示，例如 26 USDT
+    - 未记录支付方式：不强行猜测，优先显示真实订单金额；没有金额则显示当前套餐 USDT 价格
+
+    这里只影响后台展示，不写数据库，不改变订单/发货/库存/邮件流程。
+    """
+    method = str(payment_method_label or "").lower()
+
+    if "微信" in payment_method_label or "支付宝" in payment_method_label or "wechat" in method or "wxpay" in method or "alipay" in method:
+        return product_price_cny(order.product_code, 0), "元"
+
+    if "usdt" in method or "nowpayments" in method or "trc20" in method or "crypto" in method:
+        return product_amount_usd(order.product_code, 0), "USDT"
+
     amount_names = [
         "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount",
         "amount_usdt", "price_usdt", "product_price_usdt", "amount_usd",
@@ -275,17 +285,14 @@ def get_payment_amount_for_order(order: Order, extra: dict) -> tuple[object, str
         currency = first_value(extra, currency_names)
 
     if amount is None or amount == "":
-        # 没有保存订单金额的旧订单，按当前产品配置兜底显示 USDT 售价。
-        amount = product_amount_usd(order.product_code, None)
-        currency = currency or "USDT"
+        amount = product_amount_usd(order.product_code, 0)
+        currency = "USDT"
 
-    currency = currency or "USDT"
-    currency_text = str(currency).upper()
-    if currency_text in {"USDTTRC20", "USDT_TRC20", "TRC20"}:
+    currency_text = str(currency or "USDT").upper()
+    if currency_text in {"USDTTRC20", "USDT_TRC20", "TRC20", "USD"}:
         currency_text = "USDT"
-    if currency_text == "USD":
-        # NOWPayments 里 amount_usd 实际按 USDT 近似美元计价，后台展示为 USDT 更符合你的业务。
-        currency_text = "USDT"
+    if currency_text in {"CNY", "RMB", "人民币"}:
+        currency_text = "元"
 
     return amount, currency_text
 
@@ -335,8 +342,8 @@ def suggested_delivery_content(order: Order) -> str:
 
 def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None):
     extra = extra if extra is not None else read_order_extra_from_db(db, o)
-    payment_amount, payment_currency = get_payment_amount_for_order(o, extra)
     payment_method_label = get_payment_method_for_order(o, extra)
+    payment_amount, payment_currency = get_payment_amount_for_order(o, extra, payment_method_label)
 
     return {
         "id": o.id,
