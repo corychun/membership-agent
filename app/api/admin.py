@@ -4,11 +4,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import admin_to_dict, normalize_role, require_permission
 from app.core.db import get_db
-from app.core.products import product_name, product_period_days, product_price_cny
+from app.core.products import product_amount_usd, product_name, product_period_days, product_price_cny
 from app.core.security import create_admin_token, hash_password, verify_password
 from app.models.entities import AdminUser, DeliveryRecord, Order, OrderLog, RenewalTask
 from app.services.delivery import mark_paid_and_deliver
@@ -145,7 +146,9 @@ def update_renewal_status_for_order(db: Session, order: Order, status: str, note
 
 
 
+
 def safe_order_attr(order: Order, *names, default=None):
+    """读取 ORM 上已有的字段，兼容不同版本的 Order 模型。"""
     for name in names:
         try:
             value = getattr(order, name, None)
@@ -156,8 +159,58 @@ def safe_order_attr(order: Order, *names, default=None):
     return default
 
 
-def normalize_payment_method_label(value) -> str:
+def read_order_extra_from_db(db: Session | None, order: Order) -> dict:
+    """从 orders 表真实字段读取付款金额/支付方式。
+
+    目的：不改数据库结构、不影响原有功能。
+    有些线上库已经有 amount_usd、pay_currency、payment_method 等字段，
+    但旧 Order 模型没有声明这些字段，直接 getattr 会拿不到，所以这里用表结构探测兼容读取。
+    """
+    if db is None or not order or not getattr(order, "id", None):
+        return {}
+
+    try:
+        inspector = inspect(db.bind)
+        table_names = set(inspector.get_table_names())
+        if "orders" not in table_names:
+            return {}
+
+        cols = {c["name"] for c in inspector.get_columns("orders")}
+        wanted = [
+            "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
+            "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
+            "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
+        ]
+        selected = [c for c in wanted if c in cols]
+        if not selected:
+            return {}
+
+        sql = text('SELECT ' + ', '.join(selected) + ' FROM orders WHERE id = :id LIMIT 1')
+        row = db.execute(sql, {"id": order.id}).mappings().first()
+        return dict(row or {})
+    except Exception:
+        # 付款展示不能影响后台订单列表主流程
+        return {}
+
+
+def first_value(data: dict, names: list[str], default=None):
+    for name in names:
+        value = data.get(name)
+        if value is not None and value != "":
+            return value
+    return default
+
+
+def normalize_payment_method_label(value, order: Order | None = None) -> str:
     raw = str(value or "").strip()
+
+    # 老订单没有保存支付方式时，根据当前项目默认支付链路兜底显示。
+    # 不写数据库，只用于后台展示，避免继续出现“未记录”。
+    if not raw and order is not None:
+        status_text = f"{getattr(order, 'payment_status', '')} {getattr(order, 'status', '')}".lower()
+        if any(x in status_text for x in ["waiting", "paid", "finished", "completed", "success"]):
+            return "USDT"
+
     if not raw:
         return "未记录"
     v = raw.lower()
@@ -188,6 +241,62 @@ def format_amount_value(value, currency: str = "") -> str:
     currency = (currency or "").strip().upper()
     return f"{text} {currency}".strip()
 
+
+def is_cny_payment_method(method_text: str) -> bool:
+    value = str(method_text or "").lower()
+    return any(x in value for x in ["微信", "wechat", "wxpay", "weixin", "支付宝", "alipay"])
+
+
+def is_usdt_payment_method(method_text: str) -> bool:
+    value = str(method_text or "").lower()
+    return any(x in value for x in ["usdt", "trc20", "nowpayments", "crypto"])
+
+
+def get_payment_amount_for_order(order: Order, extra: dict, payment_method_label: str = "") -> tuple[object, str]:
+    """后台展示金额：按套餐金额展示，不依赖旧订单是否保存金额。
+
+    - 微信支付 / 支付宝支付：显示人民币套餐价，例如 169 CNY
+    - USDT / NOWPayments / TRC20：显示 USDT 套餐价，例如 26 USDT
+    - 老订单没有支付方式时：沿用当前默认 USDT 链路展示 USDT 套餐价
+    """
+    method_label = str(payment_method_label or "")
+
+    if is_cny_payment_method(method_label):
+        return product_price_cny(order.product_code, 0), "CNY"
+
+    if is_usdt_payment_method(method_label) or not method_label or method_label == "未记录":
+        return product_amount_usd(order.product_code, None), "USDT"
+
+    # 未知支付方式时，尽量根据订单里已有币种判断；仍然优先显示套餐价。
+    currency_names = ["payment_currency", "currency", "pay_currency"]
+    currency = safe_order_attr(order, *currency_names, default=None) or first_value(extra, currency_names) or "USDT"
+    currency_text = str(currency).upper()
+
+    if currency_text in {"CNY", "RMB", "RMB¥", "¥"}:
+        return product_price_cny(order.product_code, 0), "CNY"
+
+    if currency_text in {"USDTTRC20", "USDT_TRC20", "TRC20", "USD", "USDT"}:
+        return product_amount_usd(order.product_code, None), "USDT"
+
+    # 兜底：如果是未知币种，保留原有字段金额；没有字段则按 USDT 套餐价展示。
+    amount_names = [
+        "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount",
+        "amount_usdt", "price_usdt", "product_price_usdt", "amount_usd",
+    ]
+    amount = safe_order_attr(order, *amount_names) or first_value(extra, amount_names)
+    if amount is None or amount == "":
+        amount = product_amount_usd(order.product_code, None)
+        currency_text = "USDT"
+
+    return amount, currency_text
+
+
+def get_payment_method_for_order(order: Order, extra: dict) -> str:
+    names = ["payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel", "pay_currency"]
+    value = safe_order_attr(order, *names)
+    if value is None or value == "":
+        value = first_value(extra, names)
+    return normalize_payment_method_label(value, order)
 
 def suggested_delivery_content(order: Order) -> str:
     name = product_name(order.product_code)
@@ -225,13 +334,11 @@ def suggested_delivery_content(order: Order) -> str:
         "请登录原账号查看，如有问题请联系网站客服。"
     )
 
-def order_to_dict(o: Order):
-    renewal = None
-    try:
-        # 这里不额外查询，列表接口会批量填充，保留空值兼容。
-        pass
-    except Exception:
-        renewal = None
+def order_to_dict(o: Order, db: Session | None = None):
+    extra = read_order_extra_from_db(db, o)
+    payment_method_label = get_payment_method_for_order(o, extra)
+    payment_amount, payment_currency = get_payment_amount_for_order(o, extra, payment_method_label)
+
     return {
         "id": o.id,
         "order_no": o.order_no,
@@ -244,18 +351,14 @@ def order_to_dict(o: Order):
         "delivery_status": o.delivery_status,
         "delivery_content": o.delivery_content,
         "created_at": str(o.created_at) if o.created_at else None,
-        "payment_method": safe_order_attr(o, "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel"),
-        "payment_method_label": normalize_payment_method_label(safe_order_attr(o, "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel")),
-        "payment_amount": safe_order_attr(o, "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usdt", "price_usdt", "product_price_usdt"),
-        "payment_currency": safe_order_attr(o, "payment_currency", "currency", "pay_currency", default="USDT"),
-        "payment_amount_text": format_amount_value(
-            safe_order_attr(o, "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usdt", "price_usdt", "product_price_usdt"),
-            safe_order_attr(o, "payment_currency", "currency", "pay_currency", default="USDT"),
-        ),
+        "payment_method": payment_method_label,
+        "payment_method_label": payment_method_label,
+        "payment_amount": payment_amount,
+        "payment_currency": payment_currency,
+        "payment_amount_text": format_amount_value(payment_amount, payment_currency),
         "suggested_delivery_content": suggested_delivery_content(o),
         "can_confirm": can_manual_confirm(o),
     }
-
 
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -284,7 +387,7 @@ def list_orders(
     current_admin: AdminUser = Depends(require_permission("orders:read")),
 ):
     orders = db.query(Order).order_by(Order.id.desc()).limit(200).all()
-    return {"items": [order_to_dict(o) for o in orders]}
+    return {"items": [order_to_dict(o, db) for o in orders]}
 
 
 @router.post("/orders/confirm-paid")
