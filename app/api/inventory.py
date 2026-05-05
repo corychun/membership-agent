@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.admin_auth import require_permission
 from app.models.entities import AdminUser
+from app.core.products import active_inventory_products
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -128,13 +129,12 @@ def inventory_stats(db: Session = Depends(get_db)):
 
     rows = db.execute(sql).mappings().all()
 
-    products = [
+    products = [p.code for p in active_inventory_products()] + [
+        # 历史兼容，不在前台展示，但旧库存/旧订单仍可查看
         "GPT", "CLAUDE", "VIP", "MJ",
-        "GPT_SHARED_1M", "GPT_PLUS_1M", "GPT_PLUS_1Y", "GPT_PLUS_3M", "GPT_TEAM_1M",
-        "CLAUDE_SHARED_1M", "CLAUDE_PRO_1M", "CLAUDE_PRO_1Y", "CLAUDE_PRO_3M",
-        "MJ_BASIC_1M", "MJ_STANDARD_1M", "MJ_PRO_1M",
-        "GEMINI_PRO_1M", "PERPLEXITY_PRO_1M", "CURSOR_PRO_1M",
-        "AI_BUNDLE_1M",
+        "GPT_SHARED_1M", "GPT_PLUS_3M",
+        "CLAUDE_SHARED_1M", "CLAUDE_PRO_3M",
+        "PERPLEXITY_PRO_1M", "CURSOR_PRO_1M", "AI_BUNDLE_1M",
     ]
 
     result = {
