@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from starlette.requests import ClientDisconnect
 
 from app.core.db import get_db
-from app.models.entities import Order
+from app.models.entities import Order, RenewalTask
+from app.core.products import is_activation_product, product_period_days
+from datetime import datetime, timedelta
 from app.services.nowpayments_service import verify_ipn_signature
 
 router = APIRouter(tags=["webhooks"])
@@ -48,8 +50,24 @@ def _mark_order_paid_processing(db: Session, order: Order):
     """
     纯代开通模式：
     支付成功后，只进入待开通/处理中。
-    不发卡密、不扣库存、不自动发账号。
+    加了幂等保护，重复回调不会重复覆盖已完成订单。
     """
+    if str(order.delivery_status or "").lower() in {"delivered", "completed", "sent", "success"}:
+        return {
+            "ok": True,
+            "idempotent": True,
+            "order_no": order.order_no,
+            "payment_status": order.payment_status,
+            "status": order.status,
+            "delivery_status": order.delivery_status,
+            "delivery_content": order.delivery_content,
+        }
+
+    already_processing = (
+        str(order.payment_status or "").lower() in {"paid", "finished", "confirmed", "success"}
+        and str(order.delivery_status or "").lower() == "processing"
+    )
+
     order.payment_status = "paid"
     order.status = "paid"
     order.delivery_status = "processing"
@@ -57,12 +75,34 @@ def _mark_order_paid_processing(db: Session, order: Order):
     if not order.delivery_content:
         order.delivery_content = "已确认收款，订单已进入代开通流程，请等待开通完成通知。"
 
+    if is_activation_product(order.product_code):
+        task = db.query(RenewalTask).filter(RenewalTask.order_no == order.order_no).first()
+        if not task:
+            period_days = product_period_days(order.product_code, 30)
+            task = RenewalTask(
+                order_no=order.order_no,
+                product_code=order.product_code,
+                customer_email=order.customer_email,
+                period_days=period_days,
+                due_at=(order.created_at or datetime.utcnow()) + timedelta(days=period_days),
+                status="processing",
+                notes="支付回调后进入代开通流程",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db.add(task)
+        else:
+            task.status = "processing" if task.status not in {"active", "closed", "cancelled"} else task.status
+            task.updated_at = datetime.utcnow()
+            db.add(task)
+
     db.add(order)
     db.commit()
     db.refresh(order)
 
     return {
         "ok": True,
+        "idempotent": already_processing,
         "order_no": order.order_no,
         "payment_status": order.payment_status,
         "status": order.status,
