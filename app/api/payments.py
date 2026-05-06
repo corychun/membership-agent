@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.core.db import get_db
 from app.core.products import product_amount_usd, product_name, product_price_cny
 from app.models.entities import Order
+from app.services.product_config_service import product_amount_usd_db, product_name_db, product_price_cny_db
 from app.services.nowpayments_service import create_invoice
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -84,7 +85,7 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="Order already paid")
 
     product_code = str(order.product_code or "").upper()
-    amount_usd = product_amount_usd(product_code, PRICE_MAP_USD.get(product_code, 26))
+    amount_usd = product_amount_usd_db(db, product_code, PRICE_MAP_USD.get(product_code, 26))
 
     # 兼容 nowpayments_service.py 读取 order.amount_usd
     order.amount_usd = amount_usd
@@ -116,8 +117,8 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
         "provider": "nowpayments",
         "order_no": order.order_no,
         "product_code": order.product_code,
-        "product_name": product_name(order.product_code),
-        "product_price_cny": product_price_cny(order.product_code, 0),
+        "product_name": product_name_db(db, order.product_code),
+        "product_price_cny": product_price_cny_db(db, order.product_code, 0),
         "payment_status": order.payment_status,
         "invoice_id": invoice.get("id") or invoice.get("invoice_id"),
         "invoice_url": invoice_url,
