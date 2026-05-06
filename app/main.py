@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.db import Base, engine, SessionLocal
+from sqlalchemy import inspect, text
 from app.core.admin_auth import seed_first_admin
 
 from app.api.orders import router as orders
@@ -16,12 +17,42 @@ from app.api.admin import router as admin_router
 from app.api.support import router as support_router
 from app.api.support_ws import router as support_ws_router
 
+
+def ensure_order_extra_columns():
+    """给旧数据库补充新字段。
+
+    只添加缺失字段，不删除、不修改旧字段，避免影响现有订单、库存、发货、邮件功能。
+    """
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        if "orders" not in tables:
+            return
+
+        existing = {c["name"] for c in inspector.get_columns("orders")}
+        columns = {
+            "payment_method": "VARCHAR(50)",
+            "payment_proof_url": "VARCHAR(500)",
+            "admin_note": "TEXT",
+            "payment_confirm_note": "TEXT",
+            "confirmed_at": "TIMESTAMP",
+        }
+
+        with engine.begin() as conn:
+            for name, column_type in columns.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE orders ADD COLUMN {name} {column_type}"))
+    except Exception as e:
+        # 迁移失败不能阻止服务启动，具体错误可在 Render 日志查看。
+        print(f"ensure_order_extra_columns skipped: {e}")
+
 app = FastAPI(title="membership-agent", version="1.0.0")
 
 
 @app.on_event("startup")
 def init():
     Base.metadata.create_all(bind=engine)
+    ensure_order_extra_columns()
 
     db = SessionLocal()
     try:
