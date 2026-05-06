@@ -28,6 +28,8 @@ PRICE_MAP_USD = {
     "GPT_ACTIVATE_1Y": 270,
     "GPT_PLUS_1Y": 270,
     "GPT_TEAM_1M": 36,
+    "GPT_PRO_5X_1M": 125,
+    "GPT_PRO_20X_1M": 239,
 
     # Claude
     "CLAUDE_PRO_1M": 28,
