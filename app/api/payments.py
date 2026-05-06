@@ -36,6 +36,8 @@ PRICE_MAP_USD = {
     "CLAUDE_ACTIVATE_1M": 26,
     "CLAUDE_ACTIVATE_1Y": 270,
     "CLAUDE_PRO_1Y": 270,
+    "CLAUDE_MAX_5X_1M": 125,
+    "CLAUDE_MAX_20X_1M": 239,
 
     # Midjourney
     "MJ_BASIC_1M": 20,
