@@ -570,24 +570,39 @@ def cancel_order(
     current_admin: AdminUser = Depends(require_permission("orders:confirm")),
 ):
     order_no = (payload.order_no or "").strip()
+    reason = (payload.reason or "管理员取消订单").strip() or "管理员取消订单"
+
+    if not order_no:
+        raise HTTPException(status_code=400, detail="缺少订单号")
+
     order = db.query(Order).filter(Order.order_no == order_no).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
 
     before = status_snapshot(order)
+
     if is_delivered(order):
         raise HTTPException(status_code=400, detail="订单已完成，不能取消")
 
-    order.status = "cancelled"
-    order.payment_status = "cancelled"
-    order.delivery_status = "cancelled"
-    if not order.delivery_content:
-        order.delivery_content = payload.reason or "管理员取消订单"
-    update_renewal_status_for_order(db, order, "cancelled", payload.reason)
-    write_order_log(db, order, current_admin, "cancel_order", before, payload.reason or "管理员取消订单")
-    db.add(order)
-    db.commit()
-    return {"ok": True, "order_no": order.order_no, "msg": "订单已取消"}
+    if is_cancelled(order):
+        write_order_log(db, order, current_admin, "cancel_order_skip_already_cancelled", before, "订单已取消，重复操作已跳过")
+        db.commit()
+        return {"ok": True, "order_no": order.order_no, "msg": "订单已取消"}
+
+    try:
+        order.status = "cancelled"
+        order.payment_status = "cancelled"
+        order.delivery_status = "cancelled"
+        order.delivery_content = reason
+        update_renewal_status_for_order(db, order, "cancelled", reason)
+        write_order_log(db, order, current_admin, "cancel_order", before, reason)
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        return {"ok": True, "order_no": order.order_no, "msg": "订单已取消"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"取消订单失败：{str(e)}")
 
 
 @router.get("/renewals")
