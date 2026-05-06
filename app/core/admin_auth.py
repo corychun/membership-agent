@@ -19,6 +19,10 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "support:read",
         "support:reply",
         "support:close",
+        "products:read",
+        "products:write",
+        "stats:read",
+        "logs:read",
     ],
     "manager": [
         "orders:read",
@@ -28,12 +32,17 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "support:read",
         "support:reply",
         "support:close",
+        "products:read",
+        "stats:read",
+        "logs:read",
     ],
     "support": [
         "orders:read",
         "inventory:read",
         "support:read",
         "support:reply",
+        "stats:read",
+        "logs:read",
     ],
 }
 
