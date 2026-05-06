@@ -35,6 +35,8 @@ PRODUCTS: list[Product] = [
     Product("GPT_ACTIVATE_1Y", "ChatGPT", "ChatGPT Plus 年付代开通", 1799, 240, "1年", 365, False, "⭐ 年付推荐", "官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。"),
     Product("GPT_PLUS_1Y", "ChatGPT", "ChatGPT Plus 独享年卡", 1799, 270, "1年", 365, True),
     Product("GPT_TEAM_1M", "ChatGPT", "ChatGPT Team 席位代开通", 260, 25, "1个月", 30, True),
+    Product("GPT_PRO_5X_1M", "ChatGPT", "ChatGPT Pro 5x 月付代开通", 829, 120, "1个月", 30, False, "⚡ Pro 5x", "官方 Pro 订阅 · 人工开通 · 适合高频使用与更高额度需求。"),
+    Product("GPT_PRO_20X_1M", "ChatGPT", "ChatGPT Pro 20x 月付代开通", 1599, 230, "1个月", 30, False, "👑 Pro 20x", "官方 Pro 订阅 · 人工开通 · 适合重度用户、团队与高额度场景。"),
 
     # Claude
     Product("CLAUDE_PRO_1M", "Claude", "Claude Pro 独享账号", 200, 28, "1个月", 30, True, legacy=True),
