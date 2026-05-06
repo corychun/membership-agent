@@ -2,7 +2,7 @@ import traceback
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
@@ -11,9 +11,16 @@ from app.core.admin_auth import admin_to_dict, normalize_role, require_permissio
 from app.core.db import get_db
 from app.core.products import product_amount_usd, product_name, product_period_days, product_price_cny
 from app.core.security import create_admin_token, hash_password, verify_password
-from app.models.entities import AdminUser, DeliveryRecord, Order, OrderLog, RenewalTask
+from app.models.entities import AdminLoginAttempt, AdminUser, DeliveryRecord, Order, OrderLog, ProductConfigSnapshot, RenewalTask
 from app.services.delivery import mark_paid_and_deliver
 from app.services.email_service import send_delivery_email
+from app.services.product_config_service import (
+    list_products_for_admin,
+    product_amount_usd_db,
+    product_name_db,
+    product_price_cny_db,
+    upsert_product_config,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -58,6 +65,17 @@ class UpdateAdminRequest(BaseModel):
     password: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class ProductUpdateRequest(BaseModel):
+    product_code: str
+    name: str
+    category: str
+    price_cny: int
+    amount_usd: float
+    period: str
+    inventory: bool = False
+    is_active: bool = True
 
 
 def norm(value):
@@ -386,13 +404,19 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
     extra = extra if extra is not None else read_order_extra_from_db(db, o)
     payment_method_label = get_payment_method_for_order(o, extra)
     payment_amount, payment_currency = get_payment_amount_for_order(o, extra, payment_method_label)
+    if db is not None:
+        method_lower = str(payment_method_label or "").lower()
+        if "微信" in payment_method_label or "支付宝" in payment_method_label or "wechat" in method_lower or "alipay" in method_lower:
+            payment_amount, payment_currency = product_price_cny_db(db, o.product_code, product_price_cny(o.product_code, 0)), "元"
+        elif "usdt" in method_lower or "nowpayments" in method_lower or "trc20" in method_lower:
+            payment_amount, payment_currency = product_amount_usd_db(db, o.product_code, product_amount_usd(o.product_code, 0)), "USDT"
 
     return {
         "id": o.id,
         "order_no": o.order_no,
         "product_code": o.product_code,
-        "product_name": product_name(o.product_code),
-        "product_price_cny": product_price_cny(o.product_code, 0),
+        "product_name": product_name_db(db, o.product_code) if db else product_name(o.product_code),
+        "product_price_cny": product_price_cny_db(db, o.product_code, 0) if db else product_price_cny(o.product_code, 0),
         "customer_email": o.customer_email,
         "payment_status": o.payment_status,
         "status": o.status,
@@ -412,16 +436,50 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
         "can_confirm": can_manual_confirm(o),
     }
 
+def client_ip_from_request(request: Request | None) -> str:
+    if request is None:
+        return "unknown"
+    forwarded = request.headers.get("x-forwarded-for") if request else None
+    if forwarded:
+        return forwarded.split(",")[0].strip()[:80]
+    return (request.client.host if request.client else "unknown")[:80]
+
+
+def login_locked(db: Session, username: str, ip: str) -> bool:
+    since = datetime.utcnow() - timedelta(minutes=15)
+    count = db.query(AdminLoginAttempt).filter(
+        AdminLoginAttempt.username == username,
+        AdminLoginAttempt.ip == ip,
+        AdminLoginAttempt.success == 0,
+        AdminLoginAttempt.created_at >= since,
+    ).count()
+    return count >= 5
+
+
+def record_login_attempt(db: Session, username: str, ip: str, success: bool, reason: str = ""):
+    try:
+        db.add(AdminLoginAttempt(username=username, ip=ip, success=1 if success else 0, reason=reason, created_at=datetime.utcnow()))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     username = (payload.username or "").strip()
+    ip = client_ip_from_request(request)
+    if login_locked(db, username, ip):
+        raise HTTPException(status_code=429, detail="登录失败次数过多，请 15 分钟后再试")
+
     admin = db.query(AdminUser).filter(AdminUser.username == username).first()
 
     if not admin or int(admin.is_active or 0) != 1 or not verify_password(payload.password, admin.password_hash):
+        record_login_attempt(db, username, ip, False, "账号或密码错误")
         raise HTTPException(status_code=401, detail="账号或密码错误")
 
     admin.last_login_at = datetime.utcnow()
     db.commit()
+    record_login_attempt(db, username, ip, True, "登录成功")
     db.refresh(admin)
 
     token = create_admin_token({"sub": admin.id, "username": admin.username, "role": admin.role})
@@ -447,7 +505,7 @@ def list_orders(
 def daily_revenue(
     days: int = 30,
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:read")),
+    current_admin: AdminUser = Depends(require_permission("stats:read")),
 ):
     """后台每日收入金额统计。
 
@@ -816,7 +874,7 @@ def close_renewal(
 def list_order_logs(
     order_no: str = "",
     db: Session = Depends(get_db),
-    current_admin: AdminUser = Depends(require_permission("orders:read")),
+    current_admin: AdminUser = Depends(require_permission("logs:read")),
 ):
     q = db.query(OrderLog)
     if order_no:
@@ -833,6 +891,110 @@ def list_order_logs(
         "detail": i.detail,
         "created_at": str(i.created_at) if i.created_at else None,
     } for i in items]}
+
+
+@router.get("/stats/sales")
+def sales_stats(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("stats:read")),
+):
+    try:
+        days = int(days or 30)
+    except Exception:
+        days = 30
+    days = max(1, min(days, 180))
+
+    beijing_offset = timedelta(hours=8)
+    now_utc = datetime.utcnow()
+    now_bj = now_utc + beijing_offset
+    start_bj_day = now_bj.date() - timedelta(days=days - 1)
+    start_utc = datetime.combine(start_bj_day, datetime.min.time()) - beijing_offset
+
+    orders = db.query(Order).filter(Order.created_at >= start_utc).order_by(Order.created_at.desc()).limit(10000).all()
+    extras_by_id = read_order_extras_from_db(db, orders)
+
+    products: dict[str, dict] = {}
+    methods: dict[str, dict] = {}
+    for order in orders:
+        if not is_revenue_order(order):
+            continue
+        code = str(order.product_code or "UNKNOWN").upper()
+        item = products.setdefault(code, {
+            "product_code": code,
+            "product_name": product_name_db(db, code),
+            "count": 0,
+            "cny": 0.0,
+            "usdt": 0.0,
+        })
+        extra = extras_by_id.get(int(order.id), {})
+        amount, currency = revenue_amount_for_order(order, extra)
+        item["count"] += 1
+        if currency == "CNY":
+            item["cny"] += amount
+        else:
+            item["usdt"] += amount
+
+        method = get_payment_method_for_order(order, extra)
+        m = methods.setdefault(method, {"payment_method": method, "count": 0, "cny": 0.0, "usdt": 0.0})
+        m["count"] += 1
+        if currency == "CNY":
+            m["cny"] += amount
+        else:
+            m["usdt"] += amount
+
+    def pack(row: dict) -> dict:
+        out = dict(row)
+        out["cny"] = format_revenue_number(out.get("cny", 0))
+        out["usdt"] = format_revenue_number(out.get("usdt", 0))
+        return out
+
+    return {
+        "ok": True,
+        "days": days,
+        "products": [pack(i) for i in sorted(products.values(), key=lambda x: x["count"], reverse=True)],
+        "payment_methods": [pack(i) for i in sorted(methods.values(), key=lambda x: x["count"], reverse=True)],
+    }
+
+
+@router.get("/products")
+def admin_products(
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("products:read")),
+):
+    return {"ok": True, "items": list_products_for_admin(db, include_legacy=True)}
+
+
+@router.put("/products/{product_code}")
+def update_product_config(
+    product_code: str,
+    payload: ProductUpdateRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("products:write")),
+):
+    code = str(product_code or payload.product_code or "").upper().strip()
+    before = f"product_code={code}"
+    try:
+        item = upsert_product_config(
+            db,
+            product_code=code,
+            product_name=payload.name,
+            category=payload.category,
+            price_cny=payload.price_cny,
+            amount_usd=payload.amount_usd,
+            period=payload.period,
+            inventory=payload.inventory,
+            is_active=payload.is_active,
+            updated_by=current_admin.username,
+        )
+        write_order_log(db, None, current_admin, "product_config_update", before, f"更新产品配置：{code}，人民币={payload.price_cny}，USDT={payload.amount_usd}，上架={payload.is_active}")
+        db.commit()
+        return {"ok": True, "item": {"id": item.id, "product_code": item.product_code}}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"保存产品配置失败：{str(e)}")
 
 
 @router.get("/admins")
