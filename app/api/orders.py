@@ -21,7 +21,8 @@ from app.core.products import (
     product_period_days,
     product_price_cny,
 )
-from app.models.entities import Order, RenewalTask
+from app.models.entities import Order, OrderLog, RenewalTask
+from app.services.product_config_service import product_name_db, product_price_cny_db
 
 router = APIRouter(tags=["orders"])
 
@@ -233,6 +234,22 @@ def proof_status_label(status: str | None) -> str:
     }.get(value, value)
 
 
+def write_public_order_log(db: Session, order: Order | None, action: str, detail: str = "") -> None:
+    try:
+        db.add(OrderLog(
+            order_no=order.order_no if order else None,
+            admin_id=None,
+            admin_name="系统",
+            action=action,
+            before_status=None,
+            after_status=(f"status={order.status};payment_status={order.payment_status};delivery_status={order.delivery_status}" if order else None),
+            detail=detail,
+            created_at=datetime.utcnow(),
+        ))
+    except Exception:
+        pass
+
+
 def create_order_logic(data: CreateOrderRequest, db: Session):
     product_code = (data.product_code or "").upper().strip()
     customer_email = get_customer_email(data)
@@ -269,6 +286,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
     db.add(order)
     db.flush()
     ensure_renewal_task_for_order(db, order)
+    write_public_order_log(db, order, "create_order", f"客户创建订单；支付方式={payment_method_label(order.payment_method)}")
     db.commit()
     db.refresh(order)
 
@@ -276,8 +294,8 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         "id": order.id,
         "order_no": order.order_no,
         "product_code": order.product_code,
-        "product_name": product_name(order.product_code),
-        "product_price_cny": product_price_cny(order.product_code, 0),
+        "product_name": product_name_db(db, order.product_code),
+        "product_price_cny": product_price_cny_db(db, order.product_code, 0),
         "customer_email": order.customer_email,
         "status": order.status,
         "payment_status": order.payment_status,
@@ -312,8 +330,8 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "id": order.id,
         "order_no": order.order_no,
         "product_code": order.product_code,
-        "product_name": product_name(order.product_code),
-        "product_price_cny": product_price_cny(order.product_code, 0),
+        "product_name": product_name_db(db, order.product_code),
+        "product_price_cny": product_price_cny_db(db, order.product_code, 0),
         "customer_email": order.customer_email,
         "status": order.status,
         "payment_status": order.payment_status,
@@ -359,6 +377,7 @@ def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(
         if norm == "unknown":
             order.payment_method = "wechat"
     db.add(order)
+    write_public_order_log(db, order, "upload_payment_proof", "客户上传付款截图，等待后台审核")
     db.commit()
     db.refresh(order)
 
