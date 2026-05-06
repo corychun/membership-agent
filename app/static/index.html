@@ -397,7 +397,7 @@ async function uploadPaymentProof(orderNo, email){
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.detail || "上传失败");
-    msg.innerHTML = `<span class="ok">付款截图已上传，后台会尽快确认收款。</span>`;
+    msg.innerHTML = `<span class="ok">付款截图已上传，状态：已上传待审核，后台会尽快确认收款。</span>`;
   }catch(e){
     msg.innerHTML = `<span class="danger">${e.message}</span>`;
   }
@@ -421,10 +421,11 @@ async function queryOrder(){
 
       if(!res.ok){ lastError = data.detail || "查询失败"; continue; }
 
-      const productName = PRODUCT_MAP[data.product_code]?.name || data.product_code || "-";
-
-      const proofText = data.payment_proof_url ? `<br>付款截图：已上传` : "";
-      queryResult.innerHTML = `<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>套餐：${productName}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}${proofText}</div>`;
+      const productName = PRODUCT_MAP[data.product_code]?.name || data.product_name || data.product_code || "-";
+      const proofStatus = data.payment_proof_status_label || (data.payment_proof_url ? "已上传待审核" : "未上传");
+      const proofText = data.payment_proof_url ? `<br>付款截图：已上传` : `<br>付款截图：未上传`;
+      const noteText = data.payment_confirm_note || data.admin_note || "-";
+      queryResult.innerHTML = `<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>套餐：${productName}<br>处理进度：${data.process_step||"-"}<br>预计处理时间：${data.estimated_process_time||"-"}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>截图状态：${proofStatus}<br>后台备注：${noteText}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}${proofText}</div>`;
       return;
 
     }catch(e){ lastError = e.message; }
