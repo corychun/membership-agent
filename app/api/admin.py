@@ -455,12 +455,18 @@ def daily_revenue(
         days = 30
     days = max(1, min(days, 90))
 
-    start_at = datetime.utcnow() - timedelta(days=days - 1)
-    start_day = start_at.date()
+    # 今日收入按北京时间自然日统计。
+    # 数据库 created_at 仍按原来的 UTC 时间保存，这里只在统计时换算到北京时间，
+    # 不修改订单、库存、发货、邮件等任何现有流程。
+    beijing_offset = timedelta(hours=8)
+    now_utc = datetime.utcnow()
+    now_bj = now_utc + beijing_offset
+    start_bj_day = now_bj.date() - timedelta(days=days - 1)
+    start_utc = datetime.combine(start_bj_day, datetime.min.time()) - beijing_offset
 
     orders = (
         db.query(Order)
-        .filter(Order.created_at >= datetime.combine(start_day, datetime.min.time()))
+        .filter(Order.created_at >= start_utc)
         .order_by(Order.created_at.desc())
         .limit(5000)
         .all()
@@ -471,8 +477,9 @@ def daily_revenue(
     for order in orders:
         if not is_revenue_order(order):
             continue
-        created = getattr(order, "created_at", None) or datetime.utcnow()
-        day = created.date().isoformat()
+        created_utc = getattr(order, "created_at", None) or now_utc
+        created_bj = created_utc + beijing_offset
+        day = created_bj.date().isoformat()
         item = daily.setdefault(day, {"date": day, "cny": 0.0, "usdt": 0.0, "orders": 0})
         amount, currency = revenue_amount_for_order(order, extras_by_id.get(int(order.id), {}))
         if currency == "CNY":
@@ -481,11 +488,11 @@ def daily_revenue(
             item["usdt"] += amount
         item["orders"] += 1
 
-    today_key = datetime.utcnow().date().isoformat()
+    today_key = now_bj.date().isoformat()
     today = daily.get(today_key, {"date": today_key, "cny": 0.0, "usdt": 0.0, "orders": 0})
     items = []
     for offset in range(days):
-        day = (datetime.utcnow().date() - timedelta(days=offset)).isoformat()
+        day = (now_bj.date() - timedelta(days=offset)).isoformat()
         item = daily.get(day, {"date": day, "cny": 0.0, "usdt": 0.0, "orders": 0})
         items.append({
             "date": item["date"],
