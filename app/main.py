@@ -18,6 +18,7 @@ from app.api.inventory import router as inventory_router
 from app.api.admin import router as admin_router
 from app.api.support import router as support_router
 from app.api.support_ws import router as support_ws_router
+from app.api.products import router as products_router
 
 
 def ensure_order_extra_columns():
@@ -117,3 +118,4 @@ app.include_router(inventory_router)
 app.include_router(admin_router)
 app.include_router(support_router)
 app.include_router(support_ws_router)
+app.include_router(products_router)
