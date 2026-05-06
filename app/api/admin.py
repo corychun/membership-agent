@@ -304,6 +304,47 @@ def get_payment_method_for_order(order: Order, extra: dict) -> str:
         value = first_value(extra, names)
     return normalize_payment_method_label(value, order)
 
+
+def is_revenue_order(order: Order) -> bool:
+    """是否计入收入统计。只统计已付款/已完成订单，取消订单不计入。"""
+    if is_cancelled(order):
+        return False
+    payment = norm(getattr(order, "payment_status", ""))
+    status = norm(getattr(order, "status", ""))
+    delivery = norm(getattr(order, "delivery_status", ""))
+    return (
+        payment in {"paid", "finished", "confirmed", "success", "completed"}
+        or status in {"paid", "completed", "success"}
+        or delivery in {"delivered", "completed", "success", "sent"}
+    )
+
+
+def revenue_amount_for_order(order: Order, extra: dict) -> tuple[float, str]:
+    method_label = get_payment_method_for_order(order, extra)
+    amount, currency = get_payment_amount_for_order(order, extra, method_label)
+    try:
+        num = float(amount or 0)
+    except Exception:
+        num = 0.0
+    currency_text = str(currency or "USDT").upper()
+    if currency_text in {"CNY", "RMB", "人民币", "元"}:
+        currency_text = "CNY"
+    elif "元" in currency_text:
+        currency_text = "CNY"
+    else:
+        currency_text = "USDT"
+    return num, currency_text
+
+
+def format_revenue_number(value: float) -> str:
+    try:
+        value = float(value or 0)
+    except Exception:
+        value = 0.0
+    if value.is_integer():
+        return str(int(value))
+    return (f"{value:.2f}").rstrip("0").rstrip(".")
+
 def suggested_delivery_content(order: Order) -> str:
     name = product_name(order.product_code)
     code = str(order.product_code or "").upper()
@@ -395,6 +436,74 @@ def list_orders(
     orders = db.query(Order).order_by(Order.id.desc()).limit(200).all()
     extras_by_id = read_order_extras_from_db(db, orders)
     return {"items": [order_to_dict(o, db, extras_by_id.get(int(o.id), {})) for o in orders]}
+
+
+@router.get("/revenue/daily")
+def daily_revenue(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:read")),
+):
+    """后台每日收入金额统计。
+
+    只读统计接口，不写数据库，不影响订单/库存/发货/邮件流程。
+    微信/支付宝按人民币统计，USDT/NOWPayments/TRC20按USDT统计。
+    """
+    try:
+        days = int(days or 30)
+    except Exception:
+        days = 30
+    days = max(1, min(days, 90))
+
+    start_at = datetime.utcnow() - timedelta(days=days - 1)
+    start_day = start_at.date()
+
+    orders = (
+        db.query(Order)
+        .filter(Order.created_at >= datetime.combine(start_day, datetime.min.time()))
+        .order_by(Order.created_at.desc())
+        .limit(5000)
+        .all()
+    )
+    extras_by_id = read_order_extras_from_db(db, orders)
+
+    daily: dict[str, dict] = {}
+    for order in orders:
+        if not is_revenue_order(order):
+            continue
+        created = getattr(order, "created_at", None) or datetime.utcnow()
+        day = created.date().isoformat()
+        item = daily.setdefault(day, {"date": day, "cny": 0.0, "usdt": 0.0, "orders": 0})
+        amount, currency = revenue_amount_for_order(order, extras_by_id.get(int(order.id), {}))
+        if currency == "CNY":
+            item["cny"] += amount
+        else:
+            item["usdt"] += amount
+        item["orders"] += 1
+
+    today_key = datetime.utcnow().date().isoformat()
+    today = daily.get(today_key, {"date": today_key, "cny": 0.0, "usdt": 0.0, "orders": 0})
+    items = []
+    for offset in range(days):
+        day = (datetime.utcnow().date() - timedelta(days=offset)).isoformat()
+        item = daily.get(day, {"date": day, "cny": 0.0, "usdt": 0.0, "orders": 0})
+        items.append({
+            "date": item["date"],
+            "cny": format_revenue_number(item["cny"]),
+            "usdt": format_revenue_number(item["usdt"]),
+            "orders": item["orders"],
+        })
+
+    return {
+        "ok": True,
+        "today": {
+            "date": today["date"],
+            "cny": format_revenue_number(today["cny"]),
+            "usdt": format_revenue_number(today["usdt"]),
+            "orders": today["orders"],
+        },
+        "items": items,
+    }
 
 
 @router.post("/orders/confirm-paid")
