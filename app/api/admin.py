@@ -25,10 +25,12 @@ class LoginRequest(BaseModel):
 
 class ConfirmPaidRequest(BaseModel):
     order_no: str
+    note: Optional[str] = None
 
 
 class BulkConfirmPaidRequest(BaseModel):
     order_nos: list[str]
+    note: Optional[str] = None
 
 
 class ManualCompleteRequest(BaseModel):
@@ -163,6 +165,7 @@ ORDER_EXTRA_COLUMNS = [
     "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
     "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
     "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
+    "payment_proof_url", "admin_note", "payment_confirm_note", "confirmed_at",
 ]
 
 
@@ -403,6 +406,10 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
         "payment_amount": payment_amount,
         "payment_currency": payment_currency,
         "payment_amount_text": format_amount_value(payment_amount, payment_currency),
+        "payment_proof_url": safe_order_attr(o, "payment_proof_url", default=extra.get("payment_proof_url")),
+        "admin_note": safe_order_attr(o, "admin_note", default=extra.get("admin_note")),
+        "payment_confirm_note": safe_order_attr(o, "payment_confirm_note", default=extra.get("payment_confirm_note")),
+        "confirmed_at": str(safe_order_attr(o, "confirmed_at", default=extra.get("confirmed_at")) or "") or None,
         "suggested_delivery_content": suggested_delivery_content(o),
         "can_confirm": can_manual_confirm(o),
     }
@@ -524,6 +531,7 @@ def confirm_paid_and_deliver(
         raise HTTPException(status_code=404, detail="Order not found")
 
     before = status_snapshot(order)
+    confirm_note = (payload.note or "").strip()
 
     if is_delivered(order):
         write_order_log(db, order, current_admin, "confirm_paid_skip_already_delivered", before, "重复点击确认，订单已完成")
@@ -540,11 +548,17 @@ def confirm_paid_and_deliver(
         )
 
     try:
+        if hasattr(order, "payment_confirm_note"):
+            order.payment_confirm_note = confirm_note or "后台确认收款"
+        if hasattr(order, "admin_note") and confirm_note:
+            order.admin_note = confirm_note
+        if hasattr(order, "confirmed_at"):
+            order.confirmed_at = datetime.utcnow()
         result = mark_paid_and_deliver(db, order)
         db.refresh(order)
         if norm(order.delivery_status) in {"processing", "delivered", "completed", "sent"}:
             get_or_create_renewal_task(db, order, "active" if is_delivered(order) else "processing")
-        write_order_log(db, order, current_admin, "confirm_paid", before, "确认收款并进入发货/代开通流程")
+        write_order_log(db, order, current_admin, "confirm_paid", before, "确认收款并进入发货/代开通流程" + (f"；备注：{confirm_note}" if confirm_note else ""))
         db.commit()
         db.refresh(order)
         return {"ok": True, "msg": "paid + delivered", "order_no": order.order_no, "delivery_content": order.delivery_content, "result": result}
@@ -577,6 +591,8 @@ def confirm_paid_and_deliver_bulk(
     if len(order_nos) > 50:
         raise HTTPException(status_code=400, detail="单次最多批量处理 50 个订单")
 
+    confirm_note = (payload.note or "").strip()
+
     results = []
     success_count = 0
     failed_count = 0
@@ -607,11 +623,17 @@ def confirm_paid_and_deliver_bulk(
             continue
 
         try:
+            if hasattr(order, "payment_confirm_note"):
+                order.payment_confirm_note = confirm_note or "后台批量确认收款"
+            if hasattr(order, "admin_note") and confirm_note:
+                order.admin_note = confirm_note
+            if hasattr(order, "confirmed_at"):
+                order.confirmed_at = datetime.utcnow()
             result = mark_paid_and_deliver(db, order)
             db.refresh(order)
             if norm(order.delivery_status) in {"processing", "delivered", "completed", "sent"}:
                 get_or_create_renewal_task(db, order, "active" if is_delivered(order) else "processing")
-            write_order_log(db, order, current_admin, "bulk_confirm_paid", before, "批量确认收款")
+            write_order_log(db, order, current_admin, "bulk_confirm_paid", before, "批量确认收款" + (f"；备注：{confirm_note}" if confirm_note else ""))
             db.commit()
             db.refresh(order)
             success_count += 1
