@@ -1,6 +1,8 @@
 (function () {
   let supportSessionNo = localStorage.getItem("support_session_no") || "";
   let supportSocket = null;
+  let supportPollTimer = null;
+  let lastRenderedMessageKey = "";
 
   const style = document.createElement("style");
   style.innerHTML = `
@@ -155,10 +157,32 @@
     try {
       const res = await fetch(`/support/sessions/${encodeURIComponent(sessionNo)}/messages`);
       const data = await res.json();
-      (data.items || []).forEach(m => appendMessage(m.sender_type, m.content));
+      const items = data.items || [];
+      items.forEach(m => appendMessage(m.sender_type, m.content));
+      lastRenderedMessageKey = items.map(m => `${m.id || ""}-${m.sender_type || ""}-${m.content || ""}`).join("|");
     } catch (e) {}
 
-    connectSocket(sessionNo);
+    startPolling(sessionNo);
+  }
+
+
+  function startPolling(sessionNo) {
+    if (supportPollTimer) clearInterval(supportPollTimer);
+    supportPollTimer = setInterval(async () => {
+      if (!sessionNo || box.style.display !== "block") return;
+      try {
+        const res = await fetch(`/support/sessions/${encodeURIComponent(sessionNo)}/messages`);
+        const data = await res.json();
+        const items = data.items || [];
+        const key = items.map(m => `${m.id || ""}-${m.sender_type || ""}-${m.content || ""}`).join("|");
+        if (key && key !== lastRenderedMessageKey) {
+          const messagesBox = document.getElementById("supportMessages");
+          messagesBox.innerHTML = "";
+          items.forEach(m => appendMessage(m.sender_type, m.content));
+          lastRenderedMessageKey = key;
+        }
+      } catch (e) {}
+    }, 3000);
   }
 
   function connectSocket(sessionNo) {
@@ -230,37 +254,59 @@
     }
   }
 
-  function sendMessage() {
+  async function sendMessage() {
     const input = document.getElementById("supportInput");
     const content = input.value.trim();
 
     if (!content) return;
-
-    if (!supportSocket || supportSocket.readyState !== WebSocket.OPEN) {
-      alert("客服连接中，请稍后再试");
+    if (!supportSessionNo) {
+      alert("请先开始咨询");
       return;
     }
 
-    supportSocket.send(JSON.stringify({ content }));
-    input.value = "";
+    try {
+      const res = await fetch(`/support/send/${encodeURIComponent(supportSessionNo)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.detail || "发送失败");
+        return;
+      }
+      input.value = "";
+      openChat(supportSessionNo);
+    } catch (e) {
+      alert("发送失败：" + e.message);
+    }
   }
 
   function sendImage(file) {
     if (!file) return;
+    if (!supportSessionNo) {
+      alert("请先开始咨询");
+      return;
+    }
 
     const reader = new FileReader();
 
-    reader.onload = () => {
-      const base64 = reader.result;
-
-      if (!supportSocket || supportSocket.readyState !== WebSocket.OPEN) {
-        alert("客服连接中，请稍后再试");
-        return;
+    reader.onload = async () => {
+      try {
+        const res = await fetch(`/support/send/${encodeURIComponent(supportSessionNo)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_base64: reader.result })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || "图片发送失败");
+          return;
+        }
+        openChat(supportSessionNo);
+      } catch (e) {
+        alert("图片发送失败：" + e.message);
       }
-
-      supportSocket.send(JSON.stringify({
-        content: "[img]" + base64
-      }));
     };
 
     reader.readAsDataURL(file);
