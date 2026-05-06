@@ -98,6 +98,18 @@ class AdminUser(Base):
     last_login_at = Column(DateTime)
 
 
+
+class AdminLoginAttempt(Base):
+    __tablename__ = "admin_login_attempts"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), index=True)
+    ip = Column(String(80), index=True)
+    success = Column(Integer, default=0)
+    reason = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class SupportSession(Base):
     __tablename__ = "support_sessions"
 
