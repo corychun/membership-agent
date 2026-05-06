@@ -194,6 +194,45 @@ def ensure_renewal_task_for_order(db: Session, order: Order) -> None:
     ))
 
 
+
+def get_payment_proof_status(order: Order) -> str:
+    status = getattr(order, "payment_proof_status", None)
+    if status:
+        return str(status)
+    if getattr(order, "payment_proof_url", None):
+        return "pending_review"
+    return "not_uploaded"
+
+
+def order_progress_text(order: Order) -> str:
+    status = str(getattr(order, "status", "") or "").lower()
+    payment = str(getattr(order, "payment_status", "") or "").lower()
+    delivery = str(getattr(order, "delivery_status", "") or "").lower()
+    proof_status = get_payment_proof_status(order)
+
+    if status in {"cancelled", "canceled", "cancel"} or delivery in {"cancelled", "canceled", "cancel"}:
+        return "订单已取消"
+    if delivery in {"delivered", "completed", "success", "sent"}:
+        return "已完成"
+    if payment in {"paid", "finished", "confirmed", "success", "completed"} or status in {"paid", "completed"}:
+        return "正在代开通"
+    if proof_status == "pending_review":
+        return "付款截图已上传，等待后台确认收款"
+    if proof_status == "rejected":
+        return "付款截图审核未通过，请重新上传或联系客服"
+    return "待付款"
+
+
+def proof_status_label(status: str | None) -> str:
+    value = str(status or "not_uploaded")
+    return {
+        "not_uploaded": "未上传",
+        "pending_review": "已上传待审核",
+        "approved": "审核通过",
+        "rejected": "审核失败",
+    }.get(value, value)
+
+
 def create_order_logic(data: CreateOrderRequest, db: Session):
     product_code = (data.product_code or "").upper().strip()
     customer_email = get_customer_email(data)
@@ -223,6 +262,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         delivery_status="pending",
         delivery_content=None,
         payment_method=normalize_payment_method(data.payment_method),
+        payment_proof_status="not_uploaded",
         created_at=datetime.utcnow(),
     )
 
@@ -282,6 +322,13 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "payment_method": payment_method_label(getattr(order, "payment_method", None)),
         "payment_method_code": normalize_payment_method(getattr(order, "payment_method", None)),
         "payment_proof_url": getattr(order, "payment_proof_url", None),
+        "payment_proof_status": get_payment_proof_status(order),
+        "payment_proof_status_label": proof_status_label(get_payment_proof_status(order)),
+        "admin_note": getattr(order, "admin_note", None),
+        "payment_confirm_note": getattr(order, "payment_confirm_note", None),
+        "confirmed_at": str(getattr(order, "confirmed_at", None)) if getattr(order, "confirmed_at", None) else None,
+        "process_step": order_progress_text(order),
+        "estimated_process_time": "通常确认收款后 10-60 分钟内处理，高峰期可能稍有延迟。",
         "created_at": str(order.created_at) if order.created_at else None,
         "renewal_due_at": str(renewal.due_at) if renewal and renewal.due_at else None,
         "renewal_status": renewal.status if renewal else None,
@@ -307,6 +354,7 @@ def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(
 
     url = save_payment_proof_image(order.order_no, data.image_data, data.filename)
     order.payment_proof_url = url
+    order.payment_proof_status = "pending_review"
     if norm := normalize_payment_method(getattr(order, "payment_method", None)):
         if norm == "unknown":
             order.payment_method = "wechat"
