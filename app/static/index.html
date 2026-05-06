@@ -159,7 +159,7 @@ select option{color:#111827}
 </div>
 
 <script>
-const PRODUCTS = [
+let PRODUCTS = [
   {code:"GPT_ACTIVATE_1M",category:"ChatGPT",name:"ChatGPT Plus 月付代开通",price:169,usd:20,period:"1个月",badge:"🔥 新用户首选",desc:"官方订阅 · 人工开通 · 稳定不封号 · 售后保障。",noInventory:true},
   {code:"GPT_ACTIVATE_1Y",category:"ChatGPT",name:"ChatGPT Plus 年付代开通",price:1799,usd:240,period:"1年",badge:"⭐ 年付推荐",desc:"官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。",noInventory:true},
   {code:"GPT_TEAM_1M",category:"ChatGPT",name:"ChatGPT Team 席位代开通",price:260,usd:25,period:"1个月",badge:"团队版",desc:"官方订阅 · 人工开通 · 适合团队协作和高频使用。",noInventory:true},
@@ -181,8 +181,8 @@ const PRODUCTS = [
   {code:"GEMINI_ULTRA_1M",category:"Gemini",name:"Gemini Ultra 代开通",price:1899,usd:199,period:"1个月",badge:"👑 高端套餐",desc:"官方最高级订阅 · 人工开通 · 顶级模型权限和最高调用额度。",noInventory:true}
 ];
 
-const PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
-const CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
+let PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
+let CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
 
 let activeCategory = "ChatGPT";
 let selectedProduct = "GPT_ACTIVATE_1M";
@@ -195,6 +195,34 @@ const selectedProductText = document.getElementById("selectedProductText");
 
 function scrollToBuy(){document.getElementById("buyArea").scrollIntoView({behavior:"smooth"})}
 function scrollToQuery(){document.getElementById("queryArea").scrollIntoView({behavior:"smooth"})}
+
+async function loadPublicProducts(){
+  try{
+    const res = await fetch("/products/public");
+    const data = await res.json();
+    if(res.ok && Array.isArray(data.items) && data.items.length){
+      PRODUCTS = data.items.map(p => ({
+        code:p.code,
+        category:p.category,
+        name:p.name,
+        price:Number(p.price_cny||p.price||0),
+        usd:Number(p.amount_usd||p.usd||0),
+        period:p.period||"1个月",
+        badge:p.badge||"官方订阅",
+        desc:p.desc||"官方订阅 · 人工开通。",
+        noInventory:!p.inventory
+      }));
+      PRODUCT_MAP = Object.fromEntries(PRODUCTS.map(p => [p.code, p]));
+      CATEGORIES = [...new Set(PRODUCTS.map(p => p.category))];
+      if(!PRODUCT_MAP[selectedProduct] && PRODUCTS.length){
+        activeCategory = PRODUCTS[0].category;
+        selectedProduct = PRODUCTS[0].code;
+      }
+    }
+  }catch(e){
+    console.warn("产品配置加载失败，使用本地配置", e);
+  }
+}
 
 function initCategoryTabs(){
   document.getElementById("categoryTabs").innerHTML = CATEGORIES.map(c => `
@@ -434,12 +462,15 @@ async function queryOrder(){
   queryResult.innerHTML = `<span class="danger">${lastError}</span>`;
 }
 
-initCategoryTabs();
-renderProducts();
-updateSelectedProductText();
-selectPay("wechat");
-updateQR();
-updateBuyButton();
+(async function bootstrap(){
+  await loadPublicProducts();
+  initCategoryTabs();
+  renderProducts();
+  updateSelectedProductText();
+  selectPay("wechat");
+  updateQR();
+  updateBuyButton();
+})();
 </script>
 
 <script src="/static/chat.js?v=1"></script>
