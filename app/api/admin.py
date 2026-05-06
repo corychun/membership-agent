@@ -9,13 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import admin_to_dict, normalize_role, require_permission
 from app.core.db import get_db
-from app.core.products import product_amount_usd, product_name, product_period_days, product_price_cny
+from app.core.products import ALL_PRODUCTS, product_amount_usd, product_name, product_period_days, product_price_cny
 from app.core.security import create_admin_token, hash_password, verify_password
-from app.models.entities import AdminUser, DeliveryRecord, Order, OrderLog, RenewalTask
+from app.models.entities import AdminUser, DeliveryRecord, Order, OrderLog, ProductConfigSnapshot, RenewalTask, SystemErrorLog
 from app.services.delivery import mark_paid_and_deliver
 from app.services.email_service import send_delivery_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+LOGIN_FAILS: dict[str, dict] = {}
 
 
 class LoginRequest(BaseModel):
@@ -25,6 +27,12 @@ class LoginRequest(BaseModel):
 
 class ConfirmPaidRequest(BaseModel):
     order_no: str
+    note: Optional[str] = None
+
+
+class ProofReviewRequest(BaseModel):
+    order_no: str
+    status: str = "approved"
     note: Optional[str] = None
 
 
@@ -165,7 +173,8 @@ ORDER_EXTRA_COLUMNS = [
     "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
     "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
     "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
-    "payment_proof_url", "admin_note", "payment_confirm_note", "confirmed_at",
+    "payment_proof_url", "payment_proof_status", "payment_proof_checked_at", "payment_proof_checked_by",
+    "admin_note", "payment_confirm_note", "confirmed_at",
 ]
 
 
@@ -308,6 +317,42 @@ def get_payment_method_for_order(order: Order, extra: dict) -> str:
     return normalize_payment_method_label(value, order)
 
 
+
+def proof_status_value(order: Order, extra: dict) -> str:
+    value = safe_order_attr(order, "payment_proof_status", default=extra.get("payment_proof_status"))
+    if value:
+        return str(value)
+    if safe_order_attr(order, "payment_proof_url", default=extra.get("payment_proof_url")):
+        return "pending_review"
+    return "not_uploaded"
+
+
+def proof_status_label(value: str | None) -> str:
+    return {
+        "not_uploaded": "未上传",
+        "pending_review": "已上传待审核",
+        "approved": "审核通过",
+        "rejected": "审核失败",
+    }.get(str(value or "not_uploaded"), str(value or "not_uploaded"))
+
+
+def process_step_for_order(order: Order, extra: dict) -> str:
+    if is_cancelled(order):
+        return "订单已取消"
+    if is_delivered(order):
+        return "已完成"
+    payment = norm(getattr(order, "payment_status", ""))
+    status = norm(getattr(order, "status", ""))
+    proof = proof_status_value(order, extra)
+    if payment in {"paid", "finished", "confirmed", "success", "completed"} or status in {"paid", "completed"}:
+        return "正在代开通"
+    if proof == "pending_review":
+        return "付款截图已上传，等待后台确认收款"
+    if proof == "rejected":
+        return "付款截图审核未通过"
+    return "待付款"
+
+
 def is_revenue_order(order: Order) -> bool:
     """是否计入收入统计。只统计已付款/已完成订单，取消订单不计入。"""
     if is_cancelled(order):
@@ -407,6 +452,12 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
         "payment_currency": payment_currency,
         "payment_amount_text": format_amount_value(payment_amount, payment_currency),
         "payment_proof_url": safe_order_attr(o, "payment_proof_url", default=extra.get("payment_proof_url")),
+        "payment_proof_status": proof_status_value(o, extra),
+        "payment_proof_status_label": proof_status_label(proof_status_value(o, extra)),
+        "payment_proof_checked_at": str(safe_order_attr(o, "payment_proof_checked_at", default=extra.get("payment_proof_checked_at")) or "") or None,
+        "payment_proof_checked_by": safe_order_attr(o, "payment_proof_checked_by", default=extra.get("payment_proof_checked_by")),
+        "process_step": process_step_for_order(o, extra),
+        "estimated_process_time": "通常确认收款后 10-60 分钟内处理，高峰期可能稍有延迟。",
         "admin_note": safe_order_attr(o, "admin_note", default=extra.get("admin_note")),
         "payment_confirm_note": safe_order_attr(o, "payment_confirm_note", default=extra.get("payment_confirm_note")),
         "confirmed_at": str(safe_order_attr(o, "confirmed_at", default=extra.get("confirmed_at")) or "") or None,
@@ -417,11 +468,24 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     username = (payload.username or "").strip()
+    now = datetime.utcnow()
+    fail = LOGIN_FAILS.get(username) or {"count": 0, "locked_until": None}
+    locked_until = fail.get("locked_until")
+    if locked_until and locked_until > now:
+        minutes = max(1, int((locked_until - now).total_seconds() // 60) + 1)
+        raise HTTPException(status_code=429, detail=f"登录失败次数过多，请 {minutes} 分钟后再试")
+
     admin = db.query(AdminUser).filter(AdminUser.username == username).first()
 
     if not admin or int(admin.is_active or 0) != 1 or not verify_password(payload.password, admin.password_hash):
+        count = int(fail.get("count") or 0) + 1
+        fail["count"] = count
+        if count >= 5:
+            fail["locked_until"] = now + timedelta(minutes=15)
+        LOGIN_FAILS[username] = fail
         raise HTTPException(status_code=401, detail="账号或密码错误")
 
+    LOGIN_FAILS.pop(username, None)
     admin.last_login_at = datetime.utcnow()
     db.commit()
     db.refresh(admin)
@@ -508,6 +572,41 @@ def daily_revenue(
             "orders": item["orders"],
         })
 
+    yesterday_key = (now_bj.date() - timedelta(days=1)).isoformat()
+    yesterday = daily.get(yesterday_key, {"date": yesterday_key, "cny": 0.0, "usdt": 0.0, "orders": 0})
+    month_cny = month_usdt = 0.0
+    month_orders = 0
+    method_stats: dict[str, dict] = {}
+    product_stats: dict[str, dict] = {}
+    month_prefix = now_bj.strftime("%Y-%m")
+    for order in orders:
+        if not is_revenue_order(order):
+            continue
+        created_bj = ((getattr(order, "created_at", None) or now_utc) + beijing_offset)
+        if not created_bj.strftime("%Y-%m") == month_prefix:
+            continue
+        extra = extras_by_id.get(int(order.id), {})
+        amount, currency = revenue_amount_for_order(order, extra)
+        if currency == "CNY":
+            month_cny += amount
+        else:
+            month_usdt += amount
+        month_orders += 1
+        method = get_payment_method_for_order(order, extra)
+        m = method_stats.setdefault(method, {"method": method, "cny": 0.0, "usdt": 0.0, "orders": 0})
+        if currency == "CNY":
+            m["cny"] += amount
+        else:
+            m["usdt"] += amount
+        m["orders"] += 1
+        pname = product_name(order.product_code)
+        ps = product_stats.setdefault(order.product_code, {"product_code": order.product_code, "product_name": pname, "cny": 0.0, "usdt": 0.0, "orders": 0})
+        if currency == "CNY":
+            ps["cny"] += amount
+        else:
+            ps["usdt"] += amount
+        ps["orders"] += 1
+
     return {
         "ok": True,
         "today": {
@@ -516,6 +615,20 @@ def daily_revenue(
             "usdt": format_revenue_number(today["usdt"]),
             "orders": today["orders"],
         },
+        "yesterday": {
+            "date": yesterday["date"],
+            "cny": format_revenue_number(yesterday["cny"]),
+            "usdt": format_revenue_number(yesterday["usdt"]),
+            "orders": yesterday["orders"],
+        },
+        "month": {
+            "month": month_prefix,
+            "cny": format_revenue_number(month_cny),
+            "usdt": format_revenue_number(month_usdt),
+            "orders": month_orders,
+        },
+        "by_method": [{**v, "cny": format_revenue_number(v["cny"]), "usdt": format_revenue_number(v["usdt"])} for v in method_stats.values()],
+        "by_product": [{**v, "cny": format_revenue_number(v["cny"]), "usdt": format_revenue_number(v["usdt"])} for v in product_stats.values()],
         "items": items,
     }
 
@@ -554,6 +667,10 @@ def confirm_paid_and_deliver(
             order.admin_note = confirm_note
         if hasattr(order, "confirmed_at"):
             order.confirmed_at = datetime.utcnow()
+        if hasattr(order, "payment_proof_status") and getattr(order, "payment_proof_url", None):
+            order.payment_proof_status = "approved"
+            order.payment_proof_checked_at = datetime.utcnow()
+            order.payment_proof_checked_by = current_admin.username
         result = mark_paid_and_deliver(db, order)
         db.refresh(order)
         if norm(order.delivery_status) in {"processing", "delivered", "completed", "sent"}:
@@ -629,6 +746,10 @@ def confirm_paid_and_deliver_bulk(
                 order.admin_note = confirm_note
             if hasattr(order, "confirmed_at"):
                 order.confirmed_at = datetime.utcnow()
+            if hasattr(order, "payment_proof_status") and getattr(order, "payment_proof_url", None):
+                order.payment_proof_status = "approved"
+                order.payment_proof_checked_at = datetime.utcnow()
+                order.payment_proof_checked_by = current_admin.username
             result = mark_paid_and_deliver(db, order)
             db.refresh(order)
             if norm(order.delivery_status) in {"processing", "delivered", "completed", "sent"}:
@@ -741,6 +862,69 @@ def cancel_order(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"取消订单失败：{str(e)}")
+
+
+
+@router.post("/orders/review-proof")
+def review_payment_proof(
+    payload: ProofReviewRequest,
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("orders:confirm")),
+):
+    order_no = (payload.order_no or "").strip()
+    status = (payload.status or "approved").strip().lower()
+    note = (payload.note or "").strip()
+    if status not in {"approved", "rejected", "pending_review"}:
+        raise HTTPException(status_code=400, detail="截图审核状态不正确")
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    before = status_snapshot(order)
+    order.payment_proof_status = status
+    order.payment_proof_checked_at = datetime.utcnow()
+    order.payment_proof_checked_by = current_admin.username
+    if note:
+        order.admin_note = note
+    write_order_log(db, order, current_admin, "review_payment_proof", before, f"付款截图审核：{proof_status_label(status)}" + (f"；备注：{note}" if note else ""))
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return {"ok": True, "order_no": order.order_no, "payment_proof_status": order.payment_proof_status}
+
+
+@router.get("/products")
+def list_products_config(current_admin: AdminUser = Depends(require_permission("orders:read"))):
+    return {"ok": True, "items": [{
+        "code": p.code,
+        "category": p.category,
+        "name": p.name,
+        "product_name": f"{p.category} - {p.name}",
+        "price_cny": p.price_cny,
+        "amount_usd": p.amount_usd,
+        "period": p.period,
+        "period_days": p.period_days,
+        "inventory": p.inventory,
+        "activation": p.activation,
+        "badge": p.badge,
+        "desc": p.desc,
+        "legacy": p.legacy,
+    } for p in ALL_PRODUCTS]}
+
+
+@router.get("/system-logs")
+def list_system_logs(
+    db: Session = Depends(get_db),
+    current_admin: AdminUser = Depends(require_permission("admins:manage")),
+):
+    items = db.query(SystemErrorLog).order_by(SystemErrorLog.id.desc()).limit(200).all()
+    return {"ok": True, "items": [{
+        "id": i.id,
+        "source": i.source,
+        "level": i.level,
+        "message": i.message,
+        "detail": i.detail,
+        "created_at": str(i.created_at) if i.created_at else None,
+    } for i in items]}
 
 
 @router.get("/renewals")
