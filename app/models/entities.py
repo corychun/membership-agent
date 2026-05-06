@@ -22,6 +22,9 @@ class Order(Base):
     # 这些字段只用于展示和后台确认，不影响原有下单、库存、发货流程。
     payment_method = Column(String(50), default="unknown")
     payment_proof_url = Column(String(500))
+    payment_proof_status = Column(String(50), default="not_uploaded")
+    payment_proof_checked_at = Column(DateTime)
+    payment_proof_checked_by = Column(String(80))
     admin_note = Column(Text)
     payment_confirm_note = Column(Text)
     confirmed_at = Column(DateTime)
@@ -123,6 +126,33 @@ class SupportMessage(Base):
     content = Column(Text, nullable=False)
 
     is_read = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ProductConfigSnapshot(Base):
+    __tablename__ = "product_config_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    product_code = Column(String(100), index=True)
+    product_name = Column(String(255))
+    category = Column(String(80))
+    price_cny = Column(Integer)
+    amount_usd = Column(String(50))
+    period = Column(String(50))
+    inventory = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+    updated_by = Column(String(80))
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SystemErrorLog(Base):
+    __tablename__ = "system_error_logs"
+
+    id = Column(Integer, primary_key=True)
+    source = Column(String(80), index=True)
+    level = Column(String(30), default="error")
+    message = Column(Text)
+    detail = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class OrderLog(Base):
