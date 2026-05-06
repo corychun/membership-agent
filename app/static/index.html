@@ -52,6 +52,9 @@ select option{color:#111827}
 .qr-box,.status-box{margin-top:14px;padding:18px;border-radius:20px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;line-height:1.7;word-break:break-word}
 .qr-box{text-align:center;min-height:160px;border-style:dashed}
 .qr-box img{max-width:210px;width:70%;border-radius:16px;background:#fff;padding:8px;margin:12px auto;display:block}
+.proof-upload{margin-top:12px;padding:14px;border-radius:16px;background:rgba(99,102,241,.10);border:1px solid rgba(139,92,246,.25)}
+.proof-upload input{margin-top:8px}
+.proof-upload button{margin-top:10px;width:100%}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .step{padding:18px;border-radius:20px;color:#cbd5e1;line-height:1.7}
 .step b{display:inline-flex;width:30px;height:30px;border-radius:10px;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#ec4899);color:#fff;margin-bottom:10px}
@@ -118,7 +121,7 @@ select option{color:#111827}
       <div class="qr-box" id="qrBox"></div>
       <div class="status-box">
         <strong>付款说明</strong><br>
-        微信/支付宝付款后，请保留订单号。选择 USDT 时会生成 NOWPayments 支付页面；付款成功后系统会自动收到回调并更新订单。
+        微信/支付宝付款后，请上传付款截图并保留订单号；后台确认收款后进入人工代开通流程。选择 USDT 时会生成 NOWPayments 支付页面，付款成功后系统会自动收到回调并更新订单。
       </div>
     </div>
   </section>
@@ -341,7 +344,22 @@ async function buy(){
 
     qrBox.innerHTML = `<strong>${selectedPayMethod==="wechat"?"微信支付":"支付宝"}</strong><p>订单号：${orderNo}</p><p>付款金额：¥${p.price}</p><img src="/static/qrcodes/${selectedPayMethod}.png" alt="支付二维码"><p>付款后请等待后台确认。</p>`;
 
-    statusBox.innerHTML = `<div class="ok"><strong>订单创建成功</strong><br>订单号：${orderNo}<br>套餐：${p.name}<br>金额：¥${p.price}<br>该套餐为官方订阅人工开通服务，付款后请等待处理。</div>`;
+    statusBox.innerHTML = `
+      <div class="ok">
+        <strong>订单创建成功</strong><br>
+        订单号：${orderNo}<br>
+        套餐：${p.name}<br>
+        金额：¥${p.price}<br>
+        该套餐为官方订阅人工开通服务。付款后请上传付款截图，方便后台快速确认。
+      </div>
+      <div class="proof-upload">
+        <strong>上传付款截图</strong><br>
+        <span style="color:#cbd5e1;font-size:13px;">支持 png / jpg / webp，单张不超过 5MB。</span>
+        <input type="file" id="proofFile_${orderNo}" accept="image/png,image/jpeg,image/webp">
+        <button class="btn btn-secondary" onclick="uploadPaymentProof('${orderNo}', '${email.replace(/'/g, "\\'")}')">上传付款截图</button>
+        <div id="proofMsg_${orderNo}" style="margin-top:8px;"></div>
+      </div>
+    `;
 
     buyBtn.disabled = false;
     buyBtn.innerText = "继续创建订单";
@@ -350,6 +368,38 @@ async function buy(){
     statusBox.innerHTML = `<span class="danger">${e.message}</span>`;
     buyBtn.disabled = false;
     updateBuyButton();
+  }
+}
+
+function readFileAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result||""));
+    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPaymentProof(orderNo, email){
+  const input = document.getElementById("proofFile_" + orderNo);
+  const msg = document.getElementById("proofMsg_" + orderNo);
+  if(!input || !input.files || !input.files[0]){alert("请先选择付款截图");return}
+  const file = input.files[0];
+  if(file.size > 5 * 1024 * 1024){alert("付款截图不能超过 5MB");return}
+
+  msg.innerHTML = "上传中...";
+  try{
+    const imageData = await readFileAsDataUrl(file);
+    const res = await fetch("/orders/payment-proof", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({order_no:orderNo, customer_email:email, filename:file.name, image_data:imageData})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || "上传失败");
+    msg.innerHTML = `<span class="ok">付款截图已上传，后台会尽快确认收款。</span>`;
+  }catch(e){
+    msg.innerHTML = `<span class="danger">${e.message}</span>`;
   }
 }
 
@@ -373,7 +423,8 @@ async function queryOrder(){
 
       const productName = PRODUCT_MAP[data.product_code]?.name || data.product_code || "-";
 
-      queryResult.innerHTML = `<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>套餐：${productName}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}</div>`;
+      const proofText = data.payment_proof_url ? `<br>付款截图：已上传` : "";
+      queryResult.innerHTML = `<div class="ok"><strong>查询成功</strong><br>订单号：${data.order_no||orderNo}<br>套餐：${productName}<br>状态：${data.status||"-"}<br>支付状态：${data.payment_status||"-"}<br>发货状态：${data.delivery_status||"-"}<br>邮箱：${data.customer_email||"-"}${proofText}</div>`;
       return;
 
     }catch(e){ lastError = e.message; }
