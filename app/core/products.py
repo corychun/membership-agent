@@ -31,27 +31,27 @@ class Product:
 PRODUCTS: list[Product] = [
     # ChatGPT
     Product("GPT_PLUS_1M", "ChatGPT", "ChatGPT Plus 独享账号", 180, 25, "1个月", 30, True, legacy=True),
-    Product("GPT_ACTIVATE_1M", "ChatGPT", "ChatGPT Plus 月付代开通", 169, 26, "1个月", 30, False, "🔥 新用户首选", "官方订阅 · 人工开通 · 稳定不封号 · 售后保障。"),
-    Product("GPT_ACTIVATE_1Y", "ChatGPT", "ChatGPT Plus 年付代开通", 1799, 270, "1年", 365, False, "⭐ 年付推荐", "官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。"),
+    Product("GPT_ACTIVATE_1M", "ChatGPT", "ChatGPT Plus 月付代开通", 169, 20, "1个月", 30, False, "🔥 新用户首选", "官方订阅 · 人工开通 · 稳定不封号 · 售后保障。"),
+    Product("GPT_ACTIVATE_1Y", "ChatGPT", "ChatGPT Plus 年付代开通", 1799, 240, "1年", 365, False, "⭐ 年付推荐", "官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。"),
     Product("GPT_PLUS_1Y", "ChatGPT", "ChatGPT Plus 独享年卡", 1799, 270, "1年", 365, True),
-    Product("GPT_TEAM_1M", "ChatGPT", "ChatGPT Team 席位", 260, 36, "1个月", 30, True),
+    Product("GPT_TEAM_1M", "ChatGPT", "ChatGPT Team 席位代开通", 260, 25, "1个月", 30, True),
 
     # Claude
     Product("CLAUDE_PRO_1M", "Claude", "Claude Pro 独享账号", 200, 28, "1个月", 30, True, legacy=True),
-    Product("CLAUDE_ACTIVATE_1M", "Claude", "Claude Pro 月付代开通", 169, 26, "1个月", 30, False, "官方月付", "官方订阅 · 人工开通 · 适合长期稳定使用。"),
-    Product("CLAUDE_ACTIVATE_1Y", "Claude", "Claude Pro 年付代开通", 1799, 270, "1年", 365, False, "⭐ 官方年付", "官方年付订阅 · 人工开通 · 平均月成本更低。"),
+    Product("CLAUDE_ACTIVATE_1M", "Claude", "Claude Pro 月付代开通", 169, 20, "1个月", 30, False, "官方月付", "官方订阅 · 人工开通 · 适合长期稳定使用。"),
+    Product("CLAUDE_ACTIVATE_1Y", "Claude", "Claude Pro 年付代开通", 1799, 204, "1年", 365, False, "⭐ 官方年付", "官方年付订阅 · 人工开通 · 平均月成本更低。"),
     Product("CLAUDE_PRO_1Y", "Claude", "Claude Pro 独享年卡", 1799, 270, "1年", 365, True),
 
     # Midjourney
-    Product("MJ_BASIC_1M", "Midjourney", "Midjourney Basic", 120, 20, "1个月", 30, False, "AI绘画入门", "官方订阅 · 人工开通 · 适合低频出图和基础设计。"),
-    Product("MJ_STANDARD_1M", "Midjourney", "Midjourney Standard", 279, 45, "1个月", 30, False, "⭐ 最多人选择", "官方订阅 · 人工开通 · 适合设计素材、海报、创意图。"),
-    Product("MJ_PRO_1M", "Midjourney", "Midjourney Pro", 519, 85, "1个月", 30, False, "🔥 高性价比", "官方订阅 · 人工开通 · 适合设计师和高频出图用户。"),
-    Product("MJ_MEGA_1M", "Midjourney", "Midjourney Mega", 999, 160, "1个月", 30, False, "👑 工作室推荐", "官方订阅 · 人工开通 · 适合高频创作、团队和工作室用户。"),
+    Product("MJ_BASIC_1M", "Midjourney", "Midjourney Basic 代开通", 120, 10, "1个月", 30, False, "AI绘画入门", "官方订阅 · 人工开通 · 适合低频出图和基础设计。"),
+    Product("MJ_STANDARD_1M", "Midjourney", "Midjourney Standard 代开通", 279, 30, "1个月", 30, False, "⭐ 最多人选择", "官方订阅 · 人工开通 · 适合设计素材、海报、创意图。"),
+    Product("MJ_PRO_1M", "Midjourney", "Midjourney Pro 代开通", 519, 60, "1个月", 30, False, "🔥 高性价比", "官方订阅 · 人工开通 · 适合设计师和高频出图用户。"),
+    Product("MJ_MEGA_1M", "Midjourney", "Midjourney Mega 代开通", 999, 120, "1个月", 30, False, "👑 工作室推荐", "官方订阅 · 人工开通 · 适合高频创作、团队和工作室用户。"),
 
     # Gemini
-    Product("GEMINI_PLUS_1M", "Gemini", "Gemini Plus", 99, 18, "1个月", 30, False, "入门推荐", "官方订阅 · 人工开通 · 适合日常AI使用与轻度多模态需求。"),
-    Product("GEMINI_PRO_1M", "Gemini", "Gemini Pro", 189, 30, "1个月", 30, False, "🔥 主推套餐", "官方订阅 · 人工开通 · 更高额度、更强模型能力，适合高频用户。"),
-    Product("GEMINI_ULTRA_1M", "Gemini", "Gemini Ultra", 1899, 290, "1个月", 30, False, "👑 高端套餐", "官方最高级订阅 · 人工开通 · 顶级模型权限和最高调用额度。"),
+    Product("GEMINI_PLUS_1M", "Gemini", "Gemini Plus 代开通", 99, 10, "1个月", 30, False, "入门推荐", "官方订阅 · 人工开通 · 适合日常AI使用与轻度多模态需求。"),
+    Product("GEMINI_PRO_1M", "Gemini", "Gemini Pro 代开通", 189, 19, "1个月", 30, False, "🔥 主推套餐", "官方订阅 · 人工开通 · 更高额度、更强模型能力，适合高频用户。"),
+    Product("GEMINI_ULTRA_1M", "Gemini", "Gemini Ultra 代开通", 1899, 199, "1个月", 30, False, "👑 高端套餐", "官方最高级订阅 · 人工开通 · 顶级模型权限和最高调用额度。"),
 ]
 
 # 历史订单兼容：不再前台展示，但后台、查询、发货仍能识别。
