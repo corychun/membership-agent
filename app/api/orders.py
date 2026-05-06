@@ -1,6 +1,10 @@
+import base64
 import random
+import re
 import string
+import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -29,6 +33,13 @@ class CreateOrderRequest(BaseModel):
     payment_method: Optional[str] = None
 
 
+class UploadPaymentProofRequest(BaseModel):
+    order_no: str
+    image_data: str
+    filename: Optional[str] = None
+    customer_email: Optional[EmailStr] = None
+
+
 def make_order_no() -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
     return f"ORD-{suffix}"
@@ -39,6 +50,57 @@ def get_customer_email(data: CreateOrderRequest) -> str:
     if not email:
         raise HTTPException(status_code=400, detail="缺少邮箱")
     return str(email)
+
+
+def normalize_payment_method(value: str | None) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in {"wechat", "weixin", "wx", "wxpay", "微信", "微信支付"}:
+        return "wechat"
+    if raw in {"alipay", "ali", "支付宝", "支付宝支付"}:
+        return "alipay"
+    if raw in {"usdt", "trc20", "usdttrc20", "nowpayments", "crypto", "加密货币"}:
+        return "usdt"
+    return "unknown"
+
+
+def payment_method_label(value: str | None) -> str:
+    method = normalize_payment_method(value)
+    if method == "wechat":
+        return "微信支付"
+    if method == "alipay":
+        return "支付宝"
+    if method == "usdt":
+        return "USDT"
+    return "未记录"
+
+
+def save_payment_proof_image(order_no: str, image_data: str, filename: str | None = None) -> str:
+    if not image_data or not str(image_data).startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="请上传有效的付款截图图片")
+
+    match = re.match(r"^data:image/(png|jpeg|jpg|webp);base64,(.+)$", image_data, re.I | re.S)
+    if not match:
+        raise HTTPException(status_code=400, detail="仅支持 png / jpg / jpeg / webp 图片")
+
+    ext = match.group(1).lower().replace("jpeg", "jpg")
+    raw = match.group(2)
+
+    try:
+        content = base64.b64decode(raw, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="付款截图解析失败，请重新上传")
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="付款截图不能超过 5MB")
+
+    safe_order_no = re.sub(r"[^A-Za-z0-9_-]", "", order_no or "order")
+    static_dir = Path(__file__).resolve().parents[1] / "static"
+    upload_dir = static_dir / "uploads" / "payment_proofs"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    final_name = f"{safe_order_no}_{uuid.uuid4().hex[:12]}.{ext}"
+    final_path = upload_dir / final_name
+    final_path.write_bytes(content)
+    return f"/static/uploads/payment_proofs/{final_name}"
 
 
 def get_inventory_meta(db: Session):
@@ -160,6 +222,7 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         payment_status="pending",
         delivery_status="pending",
         delivery_content=None,
+        payment_method=normalize_payment_method(data.payment_method),
         created_at=datetime.utcnow(),
     )
 
@@ -179,6 +242,8 @@ def create_order_logic(data: CreateOrderRequest, db: Session):
         "status": order.status,
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
+        "payment_method": payment_method_label(order.payment_method),
+        "payment_method_code": normalize_payment_method(order.payment_method),
         "stock_available": stock_count,
         "is_activation_product": is_activation_product(product_code),
     }
@@ -214,10 +279,42 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
         "payment_status": order.payment_status,
         "delivery_status": order.delivery_status,
         "delivery_content": order.delivery_content,
+        "payment_method": payment_method_label(getattr(order, "payment_method", None)),
+        "payment_method_code": normalize_payment_method(getattr(order, "payment_method", None)),
+        "payment_proof_url": getattr(order, "payment_proof_url", None),
         "created_at": str(order.created_at) if order.created_at else None,
         "renewal_due_at": str(renewal.due_at) if renewal and renewal.due_at else None,
         "renewal_status": renewal.status if renewal else None,
     }
+
+
+@router.post("/orders/payment-proof")
+def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(get_db)):
+    order_no = (data.order_no or "").strip()
+    if not order_no:
+        raise HTTPException(status_code=400, detail="缺少订单号")
+
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    # 简单校验邮箱，避免别人拿订单号乱传。历史订单没有邮箱时不阻断。
+    if data.customer_email and order.customer_email and str(data.customer_email).lower() != str(order.customer_email).lower():
+        raise HTTPException(status_code=403, detail="订单邮箱不匹配")
+
+    if normalize_payment_method(getattr(order, "payment_method", None)) == "usdt":
+        raise HTTPException(status_code=400, detail="USDT 订单不需要上传付款截图")
+
+    url = save_payment_proof_image(order.order_no, data.image_data, data.filename)
+    order.payment_proof_url = url
+    if norm := normalize_payment_method(getattr(order, "payment_method", None)):
+        if norm == "unknown":
+            order.payment_method = "wechat"
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    return {"ok": True, "order_no": order.order_no, "payment_proof_url": url}
 
 
 @router.get("/orders/query")
