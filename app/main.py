@@ -1,10 +1,12 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from app.core.db import Base, engine, SessionLocal
+from app.models.entities import SystemErrorLog
 from sqlalchemy import inspect, text
 from app.core.admin_auth import seed_first_admin
 
@@ -33,6 +35,9 @@ def ensure_order_extra_columns():
         columns = {
             "payment_method": "VARCHAR(50)",
             "payment_proof_url": "VARCHAR(500)",
+            "payment_proof_status": "VARCHAR(50) DEFAULT 'not_uploaded'",
+            "payment_proof_checked_at": "TIMESTAMP",
+            "payment_proof_checked_by": "VARCHAR(80)",
             "admin_note": "TEXT",
             "payment_confirm_note": "TEXT",
             "confirmed_at": "TIMESTAMP",
@@ -83,6 +88,25 @@ def root():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+
+@app.exception_handler(Exception)
+async def log_unhandled_exception(request: Request, exc: Exception):
+    db = SessionLocal()
+    try:
+        db.add(SystemErrorLog(
+            source="api",
+            level="error",
+            message=str(exc),
+            detail=f"{request.method} {request.url.path}",
+        ))
+        db.commit()
+    except Exception as log_error:
+        print(f"system error log skipped: {log_error}")
+    finally:
+        db.close()
+    return JSONResponse(status_code=500, content={"detail": "系统异常，请稍后重试"})
 
 
 app.include_router(orders)
