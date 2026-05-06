@@ -91,6 +91,7 @@ input[type="checkbox"]{width:14px;height:14px;accent-color:#8b5cf6}
 .revenue-pill{display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border:1px solid rgba(139,92,246,.35);border-radius:18px;background:linear-gradient(135deg,rgba(99,102,241,.22),rgba(236,72,153,.12));box-shadow:0 12px 34px rgba(99,102,241,.16);color:#e2e8f0}
 .revenue-pill b{font-size:18px;color:#fff}
 .revenue-pill small{font-weight:900;color:#c4b5fd}
+.support-layout{display:grid;grid-template-columns:360px 1fr;gap:16px}.support-list{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(255,255,255,.04)}.support-session{padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer}.support-session:hover,.support-session.active{background:rgba(139,92,246,.18)}.support-session-title{display:flex;justify-content:space-between;gap:10px;font-weight:800}.support-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;background:#ef4444;color:#fff;font-size:12px;padding:0 7px}.support-chat-panel{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.04);min-height:520px;display:flex;flex-direction:column}.support-chat-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.support-messages{flex:1;padding:16px;overflow:auto;min-height:360px;max-height:520px}.support-row{margin:10px 0}.support-row.admin{text-align:right}.support-bubble{display:inline-block;max-width:76%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.08);border:1px solid var(--line)}.support-row.admin .support-bubble{background:linear-gradient(135deg,var(--brand2),var(--pink));border:0;color:#fff}.support-img{max-width:220px;border-radius:12px;display:block}.support-reply{padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px}.support-reply textarea{min-height:54px;flex:1}.support-empty{color:var(--muted);padding:18px}.support-meta{color:var(--soft);font-size:12px;margin-top:6px}@media(max-width:1000px){.support-layout{grid-template-columns:1fr}.support-chat-panel{min-height:420px}}
 @media(max-width:900px){body{padding:16px}.grid{grid-template-columns:1fr}.card{padding:18px;border-radius:20px}table{display:block;overflow-x:auto;white-space:nowrap}}
 </style>
 </head>
@@ -98,7 +99,7 @@ input[type="checkbox"]{width:14px;height:14px;accent-color:#8b5cf6}
 <div class="card">
   <h2>后台管理</h2><div id="meBox"></div>
   <div class="nav" style="margin-top:14px;">
-    <button onclick="showTab('orders')">订单管理</button><button onclick="showTab('inventory')">库存管理</button><button onclick="showTab('renewals')">续费管理</button><button onclick="showTab('logs')">操作日志</button><button onclick="showTab('query')">用户订单查询</button><button id="adminTabBtn" onclick="showTab('admins')">多管理员系统</button><button class="gray" onclick="logout()">退出登录</button>
+    <button onclick="showTab('orders')">订单管理</button><button onclick="showTab('inventory')">库存管理</button><button onclick="showTab('renewals')">续费管理</button><button onclick="showTab('logs')">操作日志</button><button onclick="showTab('support')">客服系统</button><button onclick="showTab('query')">用户订单查询</button><button id="adminTabBtn" onclick="showTab('admins')">多管理员系统</button><button class="gray" onclick="logout()">退出登录</button>
   </div>
 </div>
 <div class="card tab" id="tab-orders">
@@ -137,6 +138,20 @@ input[type="checkbox"]{width:14px;height:14px;accent-color:#8b5cf6}
   <h3>订单操作日志</h3>
   <div class="toolbar"><input id="logOrderNo" placeholder="按订单号筛选，可空"><button onclick="loadOrderLogs()">刷新日志</button></div>
   <table><thead><tr><th>ID</th><th>时间</th><th>订单号</th><th>管理员</th><th>操作</th><th>操作前</th><th>操作后</th><th>详情</th></tr></thead><tbody id="orderLogBody"><tr><td colspan="8">点击“刷新日志”加载。</td></tr></tbody></table>
+</div>
+<div class="card tab hidden" id="tab-support">
+  <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+    <h3 style="margin:0;">客服系统</h3>
+    <div class="toolbar" style="margin:0;"><button onclick="loadSupportSessions()">刷新会话</button><select id="supportStatusFilter" onchange="loadSupportSessions()"><option value="">全部会话</option><option value="open">进行中</option><option value="closed">已关闭</option></select></div>
+  </div>
+  <div class="support-layout">
+    <div class="support-list" id="supportSessionList"><div class="support-empty">点击“刷新会话”加载。</div></div>
+    <div class="support-chat-panel">
+      <div class="support-chat-head"><div><b id="supportChatTitle">请选择左侧会话</b><div class="support-meta" id="supportChatMeta">客户消息会显示在这里。</div></div><button class="gray" onclick="closeSupportSession()">关闭会话</button></div>
+      <div class="support-messages" id="supportMessagesAdmin"><div class="support-empty">暂无选中会话。</div></div>
+      <div class="support-reply"><textarea id="supportReplyInput" placeholder="输入客服回复内容..."></textarea><button class="green" onclick="sendSupportReply()">发送回复</button></div>
+    </div>
+  </div>
 </div>
 <div class="card tab hidden" id="tab-query"><h3>用户订单查询</h3><div class="toolbar"><input id="queryOrderNo" placeholder="输入订单号，例如 ORD-XXXX"><button onclick="queryOrder()">查询</button></div><div id="queryResult">请输入订单号查询。</div></div>
 <div class="card tab hidden" id="tab-admins"><h3>多管理员系统</h3><h4>创建管理员</h4><div class="toolbar"><input id="newAdminUsername" placeholder="管理员账号"><input id="newAdminPassword" placeholder="密码" type="password"><select id="newAdminRole"><option value="support">support / 客服</option><option value="manager">manager / 订单库存客服</option><option value="super_admin">super_admin / 超级管理员</option></select><button onclick="createAdmin()">创建管理员</button></div><div id="adminMsg"></div><h4>管理员列表</h4><table><thead><tr><th>ID</th><th>账号</th><th>角色</th><th>状态</th><th>最后登录</th><th>操作</th></tr></thead><tbody id="adminBody"></tbody></table></div>
@@ -181,7 +196,7 @@ const PRODUCT_CATALOG=[
 {code:"AI_BUNDLE_1M",category:"组合套餐",name:"AI全家桶月卡（历史订单）",price:300,period:"1个月",inventory:true}
 ];
 const PRODUCT_NAME=Object.fromEntries(PRODUCT_CATALOG.map(p=>[p.code,`${p.category} - ${p.name}`]));const token=localStorage.getItem("admin_token")||localStorage.getItem("token");if(!token)location.href="/static/login.html";let currentAdmin=null,orders=[];
-function authHeaders(){return{"Content-Type":"application/json","Authorization":"Bearer "+token}}function logout(){localStorage.removeItem("admin_token");localStorage.removeItem("token");location.href="/static/login.html"}function showTab(name){document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));document.getElementById("tab-"+name).classList.remove("hidden");if(name==="orders"){loadOrders();loadDailyRevenue()}if(name==="inventory"){loadInventory();loadInventoryLogs()}if(name==="renewals")loadRenewals();if(name==="logs")loadOrderLogs();if(name==="admins")loadAdmins()}function escapeHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}function productName(code){return PRODUCT_NAME[code]||code||"-"}function paymentMethod(o){const raw=o.payment_method_label||o.payment_method||o.pay_method||o.payment_provider||o.provider||o.checkout_provider||o.pay_channel||"";if(!raw)return "未记录";const v=String(raw).toLowerCase();if(v.includes("wechat")||v.includes("wxpay")||v.includes("weixin")||v==="wx")return "微信支付";if(v.includes("alipay")||v==="ali")return "支付宝";if(v.includes("nowpayments"))return "NOWPayments / USDT";if(v.includes("trc20"))return "USDT-TRC20";if(v.includes("usdt")||v.includes("crypto"))return "USDT";return raw}function formatBeijingTime(value){
+function authHeaders(){return{"Content-Type":"application/json","Authorization":"Bearer "+token}}function logout(){localStorage.removeItem("admin_token");localStorage.removeItem("token");location.href="/static/login.html"}function showTab(name){document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));document.getElementById("tab-"+name).classList.remove("hidden");if(name==="orders"){loadOrders();loadDailyRevenue()}if(name==="inventory"){loadInventory();loadInventoryLogs()}if(name==="renewals")loadRenewals();if(name==="logs")loadOrderLogs();if(name==="support")loadSupportSessions();if(name==="admins")loadAdmins()}function escapeHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}function productName(code){return PRODUCT_NAME[code]||code||"-"}function paymentMethod(o){const raw=o.payment_method_label||o.payment_method||o.pay_method||o.payment_provider||o.provider||o.checkout_provider||o.pay_channel||"";if(!raw)return "未记录";const v=String(raw).toLowerCase();if(v.includes("wechat")||v.includes("wxpay")||v.includes("weixin")||v==="wx")return "微信支付";if(v.includes("alipay")||v==="ali")return "支付宝";if(v.includes("nowpayments"))return "NOWPayments / USDT";if(v.includes("trc20"))return "USDT-TRC20";if(v.includes("usdt")||v.includes("crypto"))return "USDT";return raw}function formatBeijingTime(value){
   if(!value)return "-";
   const raw=String(value).trim();
   if(!raw||raw==="None"||raw==="null"||raw==="undefined")return "-";
@@ -253,7 +268,64 @@ async function closeRenewal(id){const notes=prompt("关闭原因：","无需继�
 async function loadOrderLogs(){const body=document.getElementById("orderLogBody");if(!body)return;body.innerHTML=`<tr><td colspan="8">日志加载中...</td></tr>`;try{const orderNo=document.getElementById("logOrderNo")?.value.trim()||"";const url=orderNo?`/admin/order-logs?order_no=${encodeURIComponent(orderNo)}`:"/admin/order-logs";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="8">暂无操作日志</td></tr>`;return}body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(l.id)}</td><td>${escapeHtml(formatBeijingTime(l.created_at))}</td><td>${escapeHtml(l.order_no||"-")}</td><td>${escapeHtml(l.admin_name||"系统")}</td><td>${escapeHtml(l.action||"-")}</td><td class="log-detail">${escapeHtml(l.before_status||"-")}</td><td class="log-detail">${escapeHtml(l.after_status||"-")}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")}catch(e){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(e.message)}</td></tr>`}}
 async function queryOrder(){const orderNo=document.getElementById("queryOrderNo").value.trim();if(!orderNo){alert("请输入订单号");return}let found=orders.find(o=>o.order_no===orderNo);if(!found){await loadOrders();found=orders.find(o=>o.order_no===orderNo)}if(!found){document.getElementById("queryResult").innerHTML=`<span class="danger">未找到订单</span>`;return}document.getElementById("queryResult").innerHTML=`<div class="stock">订单号：${escapeHtml(found.order_no)}<br>邮箱：${escapeHtml(found.customer_email)}<br>套餐：${escapeHtml(productName(found.product_code))}<br>订单状态：${escapeHtml(found.status)}<br>支付状态：${escapeHtml(found.payment_status)}<br>付款金额：${escapeHtml(paymentAmount(found))}<br>支付方式：${escapeHtml(paymentMethod(found))}<br>付款截图：${found.payment_proof_url?"已上传":"-"}<br>收款备注：${escapeHtml(found.payment_confirm_note||found.admin_note||"-")}<br>发货状态：${escapeHtml(found.delivery_status)}<br>发货内容：${escapeHtml(found.delivery_content||"-")}</div>`}
 async function loadAdmins(){if(!currentAdmin||currentAdmin.role!=="super_admin")return;const res=await fetch("/admin/admins",{headers:authHeaders()}),data=await res.json();if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"加载失败")}</span>`;return}document.getElementById("adminBody").innerHTML=(data.items||[]).map(a=>`<tr><td>${escapeHtml(a.id)}</td><td>${escapeHtml(a.username)}</td><td><select id="role_${a.id}"><option value="support" ${a.role==="support"?"selected":""}>support</option><option value="manager" ${a.role==="manager"?"selected":""}>manager</option><option value="super_admin" ${a.role==="super_admin"?"selected":""}>super_admin</option></select></td><td>${a.is_active?'<span class="ok">启用</span>':'<span class="danger">禁用</span>'}</td><td>${escapeHtml(formatBeijingTime(a.last_login_at))}</td><td><input id="pwd_${a.id}" placeholder="新密码，可空" type="password"><button onclick="updateAdmin(${a.id})">保存</button><button class="${a.is_active?'red':'green'}" onclick="toggleAdmin(${a.id}, ${a.is_active?0:1})">${a.is_active?'禁用':'启用'}</button></td></tr>`).join("")}
-async function createAdmin(){const username=document.getElementById("newAdminUsername").value.trim(),password=document.getElementById("newAdminPassword").value,role=document.getElementById("newAdminRole").value;if(!username||!password){alert("请输入账号和密码");return}const res=await fetch("/admin/admins",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,password,role})});const data=await res.json();if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"创建失败")}</span>`;return}document.getElementById("adminMsg").innerHTML=`<span class="ok">创建成功</span>`;document.getElementById("newAdminUsername").value="";document.getElementById("newAdminPassword").value="";loadAdmins()}async function updateAdmin(id){const role=document.getElementById("role_"+id).value,password=document.getElementById("pwd_"+id).value,body={role};if(password)body.password=password;const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify(body)}),data=await res.json();if(!res.ok){alert(data.detail||"保存失败");return}alert("保存成功");loadAdmins()}async function toggleAdmin(id,active){const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify({is_active:!!active})}),data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}loadAdmins()}function copyText(t){navigator.clipboard.writeText(t);alert("已复制："+t)}
+async function createAdmin(){const username=document.getElementById("newAdminUsername").value.trim(),password=document.getElementById("newAdminPassword").value,role=document.getElementById("newAdminRole").value;if(!username||!password){alert("请输入账号和密码");return}const res=await fetch("/admin/admins",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,password,role})});const data=await res.json();if(!res.ok){document.getElementById("adminMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"创建失败")}</span>`;return}document.getElementById("adminMsg").innerHTML=`<span class="ok">创建成功</span>`;document.getElementById("newAdminUsername").value="";document.getElementById("newAdminPassword").value="";loadAdmins()}async function updateAdmin(id){const role=document.getElementById("role_"+id).value,password=document.getElementById("pwd_"+id).value,body={role};if(password)body.password=password;const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify(body)}),data=await res.json();if(!res.ok){alert(data.detail||"保存失败");return}alert("保存成功");loadAdmins()}async function toggleAdmin(id,active){const res=await fetch("/admin/admins/"+id,{method:"PUT",headers:authHeaders(),body:JSON.stringify({is_active:!!active})}),data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}loadAdmins()}
+let supportSessions=[];
+let currentSupportSessionNo=null;
+async function loadSupportSessions(){
+  const box=document.getElementById("supportSessionList");
+  if(!box)return;
+  box.innerHTML=`<div class="support-empty">客服会话加载中...</div>`;
+  try{
+    const status=document.getElementById("supportStatusFilter")?.value||"";
+    const url=status?`/support/admin/sessions?status=${encodeURIComponent(status)}`:"/support/admin/sessions";
+    const res=await fetch(url,{headers:authHeaders()});
+    const data=await res.json();
+    if(!res.ok){box.innerHTML=`<div class="support-empty danger">${escapeHtml(data.detail||"客服会话加载失败")}</div>`;return}
+    supportSessions=data.items||[];
+    if(!supportSessions.length){box.innerHTML=`<div class="support-empty">暂无客服会话。</div>`;return}
+    box.innerHTML=supportSessions.map(s=>`<div class="support-session ${s.session_no===currentSupportSessionNo?"active":""}" onclick="openSupportSession('${escapeHtml(s.session_no)}')"><div class="support-session-title"><span>${escapeHtml(s.customer_email||"未留邮箱")}</span>${Number(s.unread_count||0)>0?`<span class="support-badge">${escapeHtml(s.unread_count)}</span>`:""}</div><div class="support-meta">订单号：${escapeHtml(s.order_no||"-")}｜状态：${escapeHtml(s.status||"-")}</div><div class="support-meta">${escapeHtml(formatBeijingTime(s.last_message_at)||"-")}</div><div style="margin-top:8px;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(String(s.last_message||"-").replace("[img]","[图片]"))}</div></div>`).join("");
+  }catch(e){box.innerHTML=`<div class="support-empty danger">${escapeHtml(e.message)}</div>`}
+}
+async function openSupportSession(sessionNo){
+  currentSupportSessionNo=sessionNo;
+  const msgBox=document.getElementById("supportMessagesAdmin");
+  msgBox.innerHTML=`<div class="support-empty">消息加载中...</div>`;
+  try{
+    const res=await fetch(`/support/admin/sessions/${encodeURIComponent(sessionNo)}/messages`,{headers:authHeaders()});
+    const data=await res.json();
+    if(!res.ok){msgBox.innerHTML=`<div class="support-empty danger">${escapeHtml(data.detail||"消息加载失败")}</div>`;return}
+    const s=data.session||{};
+    document.getElementById("supportChatTitle").innerText=`${s.customer_email||"未留邮箱"} / ${s.session_no||sessionNo}`;
+    document.getElementById("supportChatMeta").innerText=`订单号：${s.order_no||"-"} ｜ 状态：${s.status||"-"} ｜ 最后消息：${formatBeijingTime(s.last_message_at)||"-"}`;
+    const items=data.items||[];
+    if(!items.length){msgBox.innerHTML=`<div class="support-empty">暂无消息。</div>`}else{
+      msgBox.innerHTML=items.map(m=>{const isAdmin=m.sender_type==="admin";let content=escapeHtml(m.content||"");if(String(m.content||"").startsWith("[img]")){const url=String(m.content).replace("[img]","");content=`<a href="${escapeHtml(url)}" target="_blank"><img class="support-img" src="${escapeHtml(url)}"></a>`}return `<div class="support-row ${isAdmin?"admin":"customer"}"><div class="support-bubble">${content}</div><div class="support-meta">${escapeHtml(isAdmin?(m.sender_name||"客服"):"客户")} ｜ ${escapeHtml(formatBeijingTime(m.created_at)||"-")}</div></div>`}).join("");
+      msgBox.scrollTop=msgBox.scrollHeight;
+    }
+    loadSupportSessions();
+  }catch(e){msgBox.innerHTML=`<div class="support-empty danger">${escapeHtml(e.message)}</div>`}
+}
+async function sendSupportReply(){
+  if(!currentSupportSessionNo){alert("请先选择客服会话");return}
+  const input=document.getElementById("supportReplyInput");
+  const content=input.value.trim();
+  if(!content){alert("请输入回复内容");return}
+  const res=await fetch(`/support/admin/sessions/${encodeURIComponent(currentSupportSessionNo)}/reply`,{method:"POST",headers:authHeaders(),body:JSON.stringify({content})});
+  const data=await res.json();
+  if(!res.ok){alert(data.detail||"发送失败");return}
+  input.value="";
+  openSupportSession(currentSupportSessionNo);
+}
+async function closeSupportSession(){
+  if(!currentSupportSessionNo){alert("请先选择客服会话");return}
+  if(!confirm("确定关闭这个客服会话？"))return;
+  const res=await fetch(`/support/admin/sessions/${encodeURIComponent(currentSupportSessionNo)}/close`,{method:"POST",headers:authHeaders(),body:JSON.stringify({status:"closed"})});
+  const data=await res.json();
+  if(!res.ok){alert(data.detail||"关闭失败");return}
+  openSupportSession(currentSupportSessionNo);
+}
+setInterval(()=>{const tab=document.getElementById("tab-support");if(tab&&!tab.classList.contains("hidden")){loadSupportSessions();if(currentSupportSessionNo)openSupportSession(currentSupportSessionNo)}},15000);
+function copyText(t){navigator.clipboard.writeText(t);alert("已复制："+t)}
 initProductSelect();checkMe();loadDailyRevenue();loadOrders();setInterval(()=>{if(!document.getElementById("tab-orders").classList.contains("hidden")){loadOrders();loadDailyRevenue()}},60000);
 </script>
 </body>
