@@ -18,6 +18,14 @@ class Order(Base):
 
     delivery_content = Column(Text)
 
+    # 支付方式标准化与人工确认资料。
+    # 这些字段只用于展示和后台确认，不影响原有下单、库存、发货流程。
+    payment_method = Column(String(50), default="unknown")
+    payment_proof_url = Column(String(500))
+    admin_note = Column(Text)
+    payment_confirm_note = Column(Text)
+    confirmed_at = Column(DateTime)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
