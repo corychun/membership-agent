@@ -98,6 +98,8 @@ def nowpayments_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)
 
     order.payment_status = "waiting"
     order.status = "pending_payment"
+    if hasattr(order, "payment_method"):
+        order.payment_method = "usdt"
 
     external_id = invoice.get("id") or invoice.get("invoice_id") or invoice.get("payment_id")
 
