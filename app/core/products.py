@@ -33,7 +33,6 @@ PRODUCTS: list[Product] = [
     Product("GPT_PLUS_1M", "ChatGPT", "ChatGPT Plus 独享账号", 180, 25, "1个月", 30, True, legacy=True),
     Product("GPT_ACTIVATE_1M", "ChatGPT", "ChatGPT Plus 月付代开通", 169, 20, "1个月", 30, False, "🔥 新用户首选", "官方订阅 · 人工开通 · 稳定不封号 · 售后保障。"),
     Product("GPT_ACTIVATE_1Y", "ChatGPT", "ChatGPT Plus 年付代开通", 1799, 240, "1年", 365, False, "⭐ 年付推荐", "官方订阅 · 人工开通 · 长期使用更省心，适合稳定用户。"),
-    Product("GPT_PLUS_1Y", "ChatGPT", "ChatGPT Plus 独享年卡", 1799, 270, "1年", 365, True),
     Product("GPT_TEAM_1M", "ChatGPT", "ChatGPT Team 席位代开通", 260, 25, "1个月", 30, True),
     Product("GPT_PRO_5X_1M", "ChatGPT", "ChatGPT Pro 5x 月付代开通", 829, 125, "1个月", 30, False, "⚡ Pro 5x", "官方 Pro 订阅 · 人工开通 · 适合高频使用与更高额度需求。"),
     Product("GPT_PRO_20X_1M", "ChatGPT", "ChatGPT Pro 20x 月付代开通", 1599, 239, "1个月", 30, False, "👑 Pro 20x", "官方 Pro 订阅 · 人工开通 · 适合重度用户、团队与高额度场景。"),
@@ -42,7 +41,6 @@ PRODUCTS: list[Product] = [
     Product("CLAUDE_PRO_1M", "Claude", "Claude Pro 独享账号", 200, 28, "1个月", 30, True, legacy=True),
     Product("CLAUDE_ACTIVATE_1M", "Claude", "Claude Pro 月付代开通", 169, 20, "1个月", 30, False, "官方月付", "官方订阅 · 人工开通 · 适合长期稳定使用。"),
     Product("CLAUDE_ACTIVATE_1Y", "Claude", "Claude Pro 年付代开通", 1799, 204, "1年", 365, False, "⭐ 官方年付", "官方年付订阅 · 人工开通 · 平均月成本更低。"),
-    Product("CLAUDE_PRO_1Y", "Claude", "Claude Pro 独享年卡", 1799, 270, "1年", 365, True),
         Product("CLAUDE_MAX_5X_1M", "Claude", "Claude Max 5x 月付代开通", 829, 125, "1个月", 30, False, "⚡ Max 5x", "官方 Max 订阅 · 人工开通 · 5x 更高额度，适合高频 Claude 用户。"),
     Product("CLAUDE_MAX_20X_1M", "Claude", "Claude Max 20x 月付代开通", 1599, 239, "1个月", 30, False, "👑 Max 20x", "官方 Max 订阅 · 人工开通 · 20x 更高额度，适合重度使用和工作流场景。"),
 
