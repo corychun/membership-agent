@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
@@ -353,6 +354,43 @@ def get_order(order_no: str, db: Session = Depends(get_db)):
     }
 
 
+
+@router.get("/orders/payment-proof/{order_no}")
+def view_payment_proof(order_no: str, db: Session = Depends(get_db)):
+    """查看付款截图。
+
+    优先读取数据库中保存的 base64 图片；如果是旧订单没有 base64，
+    再尝试读取原来的静态文件。这样可以避免 Render 重启后本地上传文件丢失导致 Not Found。
+    """
+    order = db.query(Order).filter(Order.order_no == order_no).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    image_data = getattr(order, "payment_proof_data", None)
+    if image_data:
+        match = re.match(r"^data:image/(png|jpeg|jpg|webp);base64,(.+)$", str(image_data), re.I | re.S)
+        if match:
+            ext = match.group(1).lower().replace("jpg", "jpeg")
+            try:
+                content = base64.b64decode(match.group(2), validate=False)
+                return Response(content=content, media_type=f"image/{ext}")
+            except Exception:
+                pass
+
+    old_url = getattr(order, "payment_proof_url", None)
+    if old_url:
+        static_dir = Path(__file__).resolve().parents[1] / "static"
+        relative = str(old_url).replace("/static/", "", 1).lstrip("/")
+        file_path = static_dir / relative
+        if file_path.exists() and file_path.is_file():
+            suffix = file_path.suffix.lower().lstrip(".") or "jpeg"
+            if suffix == "jpg":
+                suffix = "jpeg"
+            return Response(content=file_path.read_bytes(), media_type=f"image/{suffix}")
+
+    raise HTTPException(status_code=404, detail="付款截图文件不存在，可能是服务重启导致旧本地文件丢失。请让客户重新上传截图。")
+
+
 @router.post("/orders/payment-proof")
 def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(get_db)):
     order_no = (data.order_no or "").strip()
@@ -372,6 +410,7 @@ def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(
 
     url = save_payment_proof_image(order.order_no, data.image_data, data.filename)
     order.payment_proof_url = url
+    order.payment_proof_data = data.image_data
     order.payment_proof_status = "pending_review"
     if norm := normalize_payment_method(getattr(order, "payment_method", None)):
         if norm == "unknown":
@@ -381,7 +420,7 @@ def upload_payment_proof(data: UploadPaymentProofRequest, db: Session = Depends(
     db.commit()
     db.refresh(order)
 
-    return {"ok": True, "order_no": order.order_no, "payment_proof_url": url}
+    return {"ok": True, "order_no": order.order_no, "payment_proof_url": f"/orders/payment-proof/{order.order_no}", "stored_url": url}
 
 
 @router.get("/orders/query")
