@@ -15,8 +15,10 @@ from app.models.entities import AdminLoginAttempt, AdminUser, DeliveryRecord, Or
 from app.services.delivery import mark_paid_and_deliver
 from app.services.email_service import send_delivery_email
 from app.services.product_config_service import (
+    get_exchange_rate_info,
     list_products_for_admin,
     product_amount_usd_db,
+    product_cost_usd_db,
     product_name_db,
     product_price_cny_db,
     upsert_product_config,
@@ -73,6 +75,7 @@ class ProductUpdateRequest(BaseModel):
     category: str
     price_cny: int
     amount_usd: float
+    cost_usd: float = 0
     period: str
     inventory: bool = False
     is_active: bool = True
@@ -183,7 +186,7 @@ ORDER_EXTRA_COLUMNS = [
     "payment_method", "pay_method", "payment_provider", "provider", "checkout_provider", "pay_channel",
     "payment_amount", "pay_amount", "paid_amount", "amount", "total_amount", "amount_usd", "amount_usdt",
     "price_usdt", "product_price_usdt", "pay_currency", "payment_currency", "currency",
-    "payment_proof_url", "admin_note", "payment_confirm_note", "confirmed_at",
+    "payment_proof_url", "payment_proof_data", "admin_note", "payment_confirm_note", "confirmed_at",
 ]
 
 
@@ -428,7 +431,7 @@ def order_to_dict(o: Order, db: Session | None = None, extra: dict | None = None
         "payment_amount": payment_amount,
         "payment_currency": payment_currency,
         "payment_amount_text": format_amount_value(payment_amount, payment_currency),
-        "payment_proof_url": safe_order_attr(o, "payment_proof_url", default=extra.get("payment_proof_url")),
+        "payment_proof_url": (f"/orders/payment-proof/{o.order_no}" if (safe_order_attr(o, "payment_proof_url", default=extra.get("payment_proof_url")) or safe_order_attr(o, "payment_proof_data", default=extra.get("payment_proof_data"))) else None),
         "admin_note": safe_order_attr(o, "admin_note", default=extra.get("admin_note")),
         "payment_confirm_note": safe_order_attr(o, "payment_confirm_note", default=extra.get("payment_confirm_note")),
         "confirmed_at": str(safe_order_attr(o, "confirmed_at", default=extra.get("confirmed_at")) or "") or None,
@@ -957,6 +960,24 @@ def sales_stats(
     }
 
 
+
+
+@router.get("/exchange-rate")
+def admin_exchange_rate(
+    force: bool = False,
+    current_admin: AdminUser = Depends(require_permission("products:read")),
+):
+    info = get_exchange_rate_info(force_refresh=force)
+    return {
+        "ok": True,
+        "base": "USD",
+        "target": "CNY",
+        "rate": info.get("rate"),
+        "source": info.get("source"),
+        "updated_at": info.get("updated_at"),
+        "error": info.get("error"),
+    }
+
 @router.get("/products")
 def admin_products(
     db: Session = Depends(get_db),
@@ -982,12 +1003,13 @@ def update_product_config(
             category=payload.category,
             price_cny=payload.price_cny,
             amount_usd=payload.amount_usd,
+            cost_usd=payload.cost_usd,
             period=payload.period,
             inventory=payload.inventory,
             is_active=payload.is_active,
             updated_by=current_admin.username,
         )
-        write_order_log(db, None, current_admin, "product_config_update", before, f"更新产品配置：{code}，人民币={payload.price_cny}，USDT={payload.amount_usd}，上架={payload.is_active}")
+        write_order_log(db, None, current_admin, "product_config_update", before, f"更新产品配置：{code}，人民币={payload.price_cny}，USDT={payload.amount_usd}，成本USD={payload.cost_usd}，上架={payload.is_active}")
         db.commit()
         return {"ok": True, "item": {"id": item.id, "product_code": item.product_code}}
     except ValueError as e:
