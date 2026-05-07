@@ -22,6 +22,7 @@ class Order(Base):
     # 这些字段只用于展示和后台确认，不影响原有下单、库存、发货流程。
     payment_method = Column(String(50), default="unknown")
     payment_proof_url = Column(String(500))
+    payment_proof_data = Column(Text)
     payment_proof_status = Column(String(50), default="not_uploaded")
     payment_proof_checked_at = Column(DateTime)
     payment_proof_checked_by = Column(String(80))
@@ -150,6 +151,7 @@ class ProductConfigSnapshot(Base):
     category = Column(String(80))
     price_cny = Column(Integer)
     amount_usd = Column(String(50))
+    cost_usd = Column(String(50))
     period = Column(String(50))
     inventory = Column(Integer, default=0)
     is_active = Column(Integer, default=1)
