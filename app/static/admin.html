@@ -158,8 +158,8 @@ input[type="checkbox"]{width:14px;height:14px;accent-color:#8b5cf6}
 
 <div class="card tab hidden" id="tab-products">
   <h3>产品配置</h3>
-  <div class="toolbar"><button onclick="loadProductsAdmin()">刷新产品</button><span class="muted">可修改套餐名称、人民币价、USDT价、是否上架；保存后前台下单和后台显示同步。</span></div>
-  <table><thead><tr><th>产品代码</th><th>分类</th><th>套餐名称</th><th>人民币价</th><th>USDT价</th><th>周期</th><th>库存商品</th><th>上架</th><th>操作</th></tr></thead><tbody id="productConfigBody"><tr><td colspan="9">点击“刷新产品”加载。</td></tr></tbody></table>
+  <div class="toolbar"><button onclick="loadProductsAdmin()">刷新产品</button><span class="muted">可修改套餐名称、人民币价、USDT价、美元成本和是否上架；利润按美元成本 × 当前汇率自动计算，仅后台显示。</span></div>
+  <table><thead><tr><th>产品代码</th><th>分类</th><th>套餐名称</th><th>人民币价</th><th>USDT价</th><th>成本USD</th><th>成本人民币</th><th>利润</th><th>周期</th><th>库存商品</th><th>上架</th><th>操作</th></tr></thead><tbody id="productConfigBody"><tr><td colspan="12">点击“刷新产品”加载。</td></tr></tbody></table>
   <div id="productConfigMsg" style="margin-top:12px;"></div>
 </div>
 <div class="card tab hidden" id="tab-admins"><h3>多管理员系统</h3><h4>创建管理员</h4><div class="toolbar"><input id="newAdminUsername" placeholder="管理员账号"><input id="newAdminPassword" placeholder="密码" type="password"><select id="newAdminRole"><option value="support">support / 客服</option><option value="manager">manager / 订单库存客服</option><option value="super_admin">super_admin / 超级管理员</option></select><button onclick="createAdmin()">创建管理员</button></div><div id="adminMsg"></div><h4>管理员列表</h4><table><thead><tr><th>ID</th><th>账号</th><th>角色</th><th>状态</th><th>最后登录</th><th>操作</th></tr></thead><tbody id="adminBody"></tbody></table></div>
@@ -269,36 +269,71 @@ async function confirmOne(orderNo){const note=prompt("收款备注（可空）�
 async function loadInventory(){try{const statsRes=await fetch("/inventory/stats"),stats=await statsRes.json();document.getElementById("stockGrid").innerHTML=(stats.items||[]).map(i=>`<div class="stock"><b>${escapeHtml(productName(i.product_code))}</b><br><small>${escapeHtml(i.product_code)}</small><br>可用：<span class="ok">${escapeHtml(i.available)}</span><br>总数：${escapeHtml(i.total)}<br>已用：${escapeHtml(i.used)}</div>`).join("");const listRes=await fetch("/inventory/list",{headers:authHeaders()}),list=await listRes.json();document.getElementById("inventoryBody").innerHTML=(list.items||[]).map(i=>`<tr><td><input type="checkbox" class="invCheck" value="${escapeHtml(i.id)}"></td><td>${escapeHtml(i.id)}</td><td>${escapeHtml(productName(i.product_code))}<br><small>${escapeHtml(i.product_code)}</small></td><td>${escapeHtml(i.content||i.code||"")}</td><td class="${i.status==='available'?'ok':'warn'}">${escapeHtml(i.status||(i.is_used?"used":"available"))}</td></tr>`).join("")||`<tr><td colspan="5">暂无库存</td></tr>`}catch(e){document.getElementById("inventoryMsg").innerHTML=`<span class="danger">库存加载失败：${escapeHtml(e.message)}</span>`}}
 async function addInventory(){const product=document.getElementById("addProduct").value,codes=document.getElementById("addCodes").value;if(!codes.trim()){alert("请输入库存内容");return}const res=await fetch("/inventory/add",{method:"POST",headers:authHeaders(),body:JSON.stringify({product_code:product,codes})});const data=await res.json();if(!res.ok){document.getElementById("inventoryMsg").innerHTML=`<span class="danger">${escapeHtml(data.detail||"添加失败")}</span>`;return}document.getElementById("inventoryMsg").innerHTML=`<span class="ok">添加成功：${escapeHtml(data.inserted||data.count||0)} 条</span>`;document.getElementById("addCodes").value="";loadInventory();loadInventoryLogs()}function toggleInventoryAll(el){document.querySelectorAll(".invCheck").forEach(i=>i.checked=el.checked)}async function deleteSelectedInventory(){const ids=Array.from(document.querySelectorAll(".invCheck:checked")).map(i=>parseInt(i.value));if(!ids.length){alert("请选择要删除的库存");return}if(!confirm(`确定删除 ${ids.length} 条库存？删除后不可恢复。`))return;const res=await fetch("/inventory/delete",{method:"POST",headers:authHeaders(),body:JSON.stringify(ids)});const data=await res.json();if(!res.ok){alert(data.detail||"删除失败");return}alert(`删除成功：${data.deleted} 条`);loadInventory();loadInventoryLogs()}
 async function loadInventoryLogs(){const body=document.getElementById("inventoryLogBody");body.innerHTML=`<tr><td colspan="6">日志加载中...</td></tr>`;try{const res=await fetch("/inventory/logs",{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="6">暂无操作日志</td></tr>`;return}body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(formatBeijingTime(l.created_at))}</td><td>${escapeHtml(l.admin_name||"-")}</td><td class="${l.action==='delete'?'danger':'ok'}">${escapeHtml(l.action||"-")}</td><td>${escapeHtml(productName(l.product_code))}<br><small>${escapeHtml(l.product_code||"-")}</small></td><td>${escapeHtml(l.quantity||0)}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")}catch(e){body.innerHTML=`<tr><td colspan="6" class="danger">${escapeHtml(e.message)}</td></tr>`}}
-async function loadRenewals(){const body=document.getElementById("renewalBody");if(!body)return;body.innerHTML=`<tr><td colspan="9">续费记录加载中...</td></tr>`;try{const status=document.getElementById("renewalFilter")?.value||"";const url=status?`/admin/renewals?status=${encodeURIComponent(status)}`:"/admin/renewals";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(data.detail||"续费记录加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="9">暂无续费记录</td></tr>`;return}body.innerHTML=items.map(i=>{const days=Number(i.days_left);const cls=days<0?"danger":(days<=3?"warn":"ok");return `<tr><td>${escapeHtml(i.id)}</td><td>${escapeHtml(i.order_no||"-")}</td><td>${escapeHtml(i.customer_email||"-")}</td><td>${escapeHtml(i.product_name||i.product_code||"-")}<br><small>${escapeHtml(i.product_code||"-")}</small></td><td>${escapeHtml(formatBeijingTime(i.due_at))}</td><td class="${cls}">${i.days_left===null||i.days_left===undefined?"-":escapeHtml(i.days_left)}</td><td class="${statusClass(i.status)}">${escapeHtml(i.status||"-")}</td><td>${escapeHtml(i.notes||"-")}</td><td><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="markRenewed(${Number(i.id)})">标记已续费</button><button class="gray" onclick="closeRenewal(${Number(i.id)})">关闭</button></div></td></tr>`}).join("")}catch(e){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(e.message)}</td></tr>`}}
+async function loadRenewals(){const body=document.getElementById("renewalBody");if(!body)return;body.innerHTML=`<tr><td colspan="9">续费记录加载中...</td></tr>`;try{const status=document.getElementById("renewalFilter")?.value||"";const url=status?`/admin/renewals?status=${encodeURIComponent(status)}`:"/admin/renewals";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(data.detail||"续费记录加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="9">暂无续费记录</td></tr>`;return}body.innerHTML=items.map(i=>{const days=Number(i.days_left);const cls=days<0?"danger":(days<=3?"warn":"ok");return `<tr><td>${escapeHtml(i.id)}</td><td>${escapeHtml(i.order_no||"-")}</td><td>${escapeHtml(i.customer_email||"-")}</td><td>${escapeHtml(i.product_name||i.product_code||"-")}<br><small>${escapeHtml(i.product_code||"-")}</small></td><td>${escapeHtml(formatBeijingTime(i.due_at))}</td><td class="${cls}">${i.days_left===null||i.days_left===undefined?"-":escapeHtml(i.days_left)}</td><td class="${statusClass(i.status)}">${escapeHtml(i.status||"-")}</td><td>${escapeHtml(i.notes||"-")}</td><td><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="markRenewed(${Number(i.id)})">标记已续费</button><button class="gray" onclick="closeRenewal(${Number(i.id)})">关闭</button></div></td></tr>`}).join("")}catch(e){body.innerHTML=`<tr><td colspan="12" class="danger">${escapeHtml(e.message)}</td></tr>`}}
 async function markRenewed(id){const notes=prompt("续费备注：","已完成续费");if(notes===null)return;const res=await fetch(`/admin/renewals/${id}/mark-renewed`,{method:"POST",headers:authHeaders(),body:JSON.stringify({notes})});const data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}alert("已标记续费，并自动顺延到期时间");loadRenewals();loadOrderLogs()}
 async function closeRenewal(id){const notes=prompt("关闭原因：","无需继续续费");if(notes===null)return;const res=await fetch(`/admin/renewals/${id}/close`,{method:"POST",headers:authHeaders(),body:JSON.stringify({notes})});const data=await res.json();if(!res.ok){alert(data.detail||"操作失败");return}alert("已关闭续费记录");loadRenewals();loadOrderLogs()}
 async function loadOrderLogs(){const body=document.getElementById("orderLogBody");if(!body)return;body.innerHTML=`<tr><td colspan="8">日志加载中...</td></tr>`;try{const orderNo=document.getElementById("logOrderNo")?.value.trim()||"";const url=orderNo?`/admin/order-logs?order_no=${encodeURIComponent(orderNo)}`:"/admin/order-logs";const res=await fetch(url,{headers:authHeaders()}),data=await res.json();if(!res.ok){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(data.detail||"日志加载失败")}</td></tr>`;return}const items=data.items||[];if(!items.length){body.innerHTML=`<tr><td colspan="8">暂无操作日志</td></tr>`;return}body.innerHTML=items.map(l=>`<tr><td>${escapeHtml(l.id)}</td><td>${escapeHtml(formatBeijingTime(l.created_at))}</td><td>${escapeHtml(l.order_no||"-")}</td><td>${escapeHtml(l.admin_name||"系统")}</td><td>${escapeHtml(l.action||"-")}</td><td class="log-detail">${escapeHtml(l.before_status||"-")}</td><td class="log-detail">${escapeHtml(l.after_status||"-")}</td><td class="log-detail">${escapeHtml(l.detail||"-")}</td></tr>`).join("")}catch(e){body.innerHTML=`<tr><td colspan="8" class="danger">${escapeHtml(e.message)}</td></tr>`}}
 async function queryOrder(){const orderNo=document.getElementById("queryOrderNo").value.trim();if(!orderNo){alert("请输入订单号");return}let found=orders.find(o=>o.order_no===orderNo);if(!found){await loadOrders();found=orders.find(o=>o.order_no===orderNo)}if(!found){document.getElementById("queryResult").innerHTML=`<span class="danger">未找到订单</span>`;return}document.getElementById("queryResult").innerHTML=`<div class="stock">订单号：${escapeHtml(found.order_no)}<br>邮箱：${escapeHtml(found.customer_email)}<br>套餐：${escapeHtml(productName(found.product_code))}<br>订单状态：${escapeHtml(found.status)}<br>支付状态：${escapeHtml(found.payment_status)}<br>付款金额：${escapeHtml(paymentAmount(found))}<br>支付方式：${escapeHtml(paymentMethod(found))}<br>付款截图：${found.payment_proof_url?"已上传":"-"}<br>收款备注：${escapeHtml(found.payment_confirm_note||found.admin_note||"-")}<br>发货状态：${escapeHtml(found.delivery_status)}<br>发货内容：${escapeHtml(found.delivery_content||"-")}</div>`}
+function formatMoneyNumber(value){
+  const num=Number(value||0);
+  if(!Number.isFinite(num))return "0";
+  return num.toFixed(2).replace(/\.00$/,"").replace(/(\.\d)0$/, "$1");
+}
+function updateProductProfitPreview(code){
+  const price=Number(document.getElementById("pc_cny_"+code)?.value||0);
+  const costUsd=Number(document.getElementById("pc_cost_"+code)?.value||0);
+  const rate=Number(document.getElementById("pc_rate_"+code)?.value||7.2);
+  const costCny=costUsd*rate;
+  const profit=price-costCny;
+  const costEl=document.getElementById("pc_cost_cny_"+code);
+  const profitEl=document.getElementById("pc_profit_"+code);
+  if(costEl)costEl.innerText="¥"+formatMoneyNumber(costCny);
+  if(profitEl){
+    profitEl.innerText="¥"+formatMoneyNumber(profit);
+    profitEl.className=profit>=0?"ok":"danger";
+  }
+}
+async function loadExchangeRateBox(){
+  const box=document.getElementById("exchangeRateBox");
+  if(!box)return;
+  try{
+    const res=await fetch("/admin/exchange-rate",{headers:authHeaders()});
+    const data=await res.json();
+    if(!res.ok){box.innerHTML=`<span class="danger">汇率加载失败：${escapeHtml(data.detail||"-")}</span>`;return}
+    const source=data.source||"-";
+    const err=data.error?`，备用原因：${escapeHtml(data.error)}`:"";
+    box.innerHTML=`当前美元兑人民币汇率：<b>${escapeHtml(data.rate||"-")}</b>（来源：${escapeHtml(source)}，缓存约30分钟${err}）`;
+  }catch(e){box.innerHTML=`<span class="danger">汇率加载失败：${escapeHtml(e.message)}</span>`}
+}
 async function loadProductsAdmin(){
+  loadExchangeRateBox();
   const body=document.getElementById("productConfigBody");
   if(!body)return;
-  body.innerHTML=`<tr><td colspan="9">产品加载中...</td></tr>`;
+  body.innerHTML=`<tr><td colspan="12">产品加载中...</td></tr>`;
   try{
     const res=await fetch("/admin/products",{headers:authHeaders()});
     const data=await res.json();
-    if(!res.ok){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(data.detail||"产品加载失败")}</td></tr>`;return}
+    if(!res.ok){body.innerHTML=`<tr><td colspan="12" class="danger">${escapeHtml(data.detail||"产品加载失败")}</td></tr>`;return}
     const items=data.items||[];
     PRODUCT_CATALOG=items.filter(p=>!p.legacy).map(p=>({code:p.code,category:p.category,name:p.name,price:Number(p.price_cny||0),period:p.period||"1个月",inventory:!!p.inventory,amount_usd:Number(p.amount_usd||0),is_active:p.is_active!==false}));
     PRODUCT_NAME=Object.fromEntries(PRODUCT_CATALOG.map(p=>[p.code,`${p.category} - ${p.name}`]));
     initProductSelect();
-    if(!items.length){body.innerHTML=`<tr><td colspan="9">暂无产品</td></tr>`;return}
-    body.innerHTML=items.filter(p=>!p.legacy).map(p=>`<tr>
-      <td>${escapeHtml(p.code)}</td>
-      <td><input id="pc_cat_${escapeHtml(p.code)}" value="${escapeHtml(p.category||"")}" style="width:110px"></td>
-      <td><input id="pc_name_${escapeHtml(p.code)}" value="${escapeHtml(p.name||"")}" style="width:220px"></td>
-      <td><input id="pc_cny_${escapeHtml(p.code)}" type="number" value="${escapeHtml(p.price_cny||0)}" style="width:90px"></td>
-      <td><input id="pc_usdt_${escapeHtml(p.code)}" type="number" step="0.01" value="${escapeHtml(p.amount_usd||0)}" style="width:90px"></td>
-      <td><input id="pc_period_${escapeHtml(p.code)}" value="${escapeHtml(p.period||"")}" style="width:80px"></td>
-      <td><select id="pc_inv_${escapeHtml(p.code)}"><option value="0" ${p.inventory?"":"selected"}>否</option><option value="1" ${p.inventory?"selected":""}>是</option></select></td>
-      <td><select id="pc_active_${escapeHtml(p.code)}"><option value="1" ${p.is_active!==false?"selected":""}>上架</option><option value="0" ${p.is_active===false?"selected":""}>下架</option></select></td>
-      <td><button onclick="saveProductConfig('${escapeHtml(p.code)}')">保存</button></td>
-    </tr>`).join("")
-  }catch(e){body.innerHTML=`<tr><td colspan="9" class="danger">${escapeHtml(e.message)}</td></tr>`}
+    if(!items.length){body.innerHTML=`<tr><td colspan="12">暂无产品</td></tr>`;return}
+    body.innerHTML=items.filter(p=>!p.legacy).map(p=>{const code=escapeHtml(p.code);const rate=Number(p.exchange_rate||7.2);return `<tr>
+      <td>${code}</td>
+      <td><input id="pc_cat_${code}" value="${escapeHtml(p.category||"")}" style="width:110px"></td>
+      <td><input id="pc_name_${code}" value="${escapeHtml(p.name||"")}" style="width:220px"></td>
+      <td><input id="pc_cny_${code}" type="number" value="${escapeHtml(p.price_cny||0)}" style="width:90px" oninput="updateProductProfitPreview('${code}')"></td>
+      <td><input id="pc_usdt_${code}" type="number" step="0.01" value="${escapeHtml(p.amount_usd||0)}" style="width:90px"></td>
+      <td><input id="pc_cost_${code}" type="number" step="0.01" value="${escapeHtml(p.cost_usd||0)}" style="width:90px" oninput="updateProductProfitPreview('${code}')"><input id="pc_rate_${code}" type="hidden" value="${escapeHtml(rate)}"></td>
+      <td><span id="pc_cost_cny_${code}">¥${escapeHtml(formatMoneyNumber(p.cost_cny||0))}</span><br><small>汇率 ${escapeHtml(rate)} · ${escapeHtml(p.exchange_rate_source||"live")}</small></td>
+      <td><span id="pc_profit_${code}" class="${Number(p.profit_cny||0)>=0?'ok':'danger'}">¥${escapeHtml(formatMoneyNumber(p.profit_cny||0))}</span></td>
+      <td><input id="pc_period_${code}" value="${escapeHtml(p.period||"")}" style="width:80px"></td>
+      <td><select id="pc_inv_${code}"><option value="0" ${p.inventory?"":"selected"}>否</option><option value="1" ${p.inventory?"selected":""}>是</option></select></td>
+      <td><select id="pc_active_${code}"><option value="1" ${p.is_active!==false?"selected":""}>上架</option><option value="0" ${p.is_active===false?"selected":""}>下架</option></select></td>
+      <td><button onclick="saveProductConfig('${code}')">保存</button></td>
+    </tr>`}).join("")
+  }catch(e){body.innerHTML=`<tr><td colspan="12" class="danger">${escapeHtml(e.message)}</td></tr>`}
 }
 async function saveProductConfig(code){
   const body={
@@ -307,6 +342,7 @@ async function saveProductConfig(code){
     name:document.getElementById("pc_name_"+code).value.trim(),
     price_cny:Number(document.getElementById("pc_cny_"+code).value||0),
     amount_usd:Number(document.getElementById("pc_usdt_"+code).value||0),
+    cost_usd:Number(document.getElementById("pc_cost_"+code).value||0),
     period:document.getElementById("pc_period_"+code).value.trim(),
     inventory:document.getElementById("pc_inv_"+code).value==="1",
     is_active:document.getElementById("pc_active_"+code).value==="1"
