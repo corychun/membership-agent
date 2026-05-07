@@ -36,6 +36,7 @@ def ensure_order_extra_columns():
         columns = {
             "payment_method": "VARCHAR(50)",
             "payment_proof_url": "VARCHAR(500)",
+            "payment_proof_data": "TEXT",
             "payment_proof_status": "VARCHAR(50) DEFAULT 'not_uploaded'",
             "payment_proof_checked_at": "TIMESTAMP",
             "payment_proof_checked_by": "VARCHAR(80)",
@@ -52,6 +53,30 @@ def ensure_order_extra_columns():
         # 迁移失败不能阻止服务启动，具体错误可在 Render 日志查看。
         print(f"ensure_order_extra_columns skipped: {e}")
 
+
+def ensure_product_config_extra_columns():
+    """给产品配置表补充成本字段。
+
+    只添加缺失字段，不删除、不修改旧字段，避免影响现有产品配置和订单流程。
+    """
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        if "product_config_snapshots" not in tables:
+            return
+
+        existing = {c["name"] for c in inspector.get_columns("product_config_snapshots")}
+        columns = {
+            "cost_usd": "VARCHAR(50)",
+        }
+
+        with engine.begin() as conn:
+            for name, column_type in columns.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE product_config_snapshots ADD COLUMN {name} {column_type}"))
+    except Exception as e:
+        print(f"ensure_product_config_extra_columns skipped: {e}")
+
 app = FastAPI(title="membership-agent", version="1.0.0")
 
 
@@ -59,6 +84,7 @@ app = FastAPI(title="membership-agent", version="1.0.0")
 def init():
     Base.metadata.create_all(bind=engine)
     ensure_order_extra_columns()
+    ensure_product_config_extra_columns()
 
     db = SessionLocal()
     try:
